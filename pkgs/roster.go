@@ -169,6 +169,14 @@ func (r *Roster) SyncRoster(rosterName RosterName, rosterRepoUrl string) error {
 	return nil
 }
 
+func (r *Roster) InstallDir(name string) string {
+	return filepath.Join(r.distDir, name, "current")
+}
+
+func (r *Roster) ReadCache(name string) (*PackageCache, error) {
+	return r.cacheManagers[ROSTER_CENTRAL].ReadCache(name)
+}
+
 func (r *Roster) LoadPackageMeta(pkgName string) (*PackageMeta, error) {
 	return r.LoadPackageMetaRoster(ROSTER_CENTRAL, pkgName)
 }
