@@ -24,10 +24,8 @@ func NewCmd() *cobra.Command {
 			cmd.Print(cmd.UsageString())
 		},
 	}
-	rootCmd.PersistentFlags().StringP("meta-dir", "m", "", "`<MetaDir>` path to cache the package roster")
-	rootCmd.PersistentFlags().StringP("dist-dir", "d", "", "`<DistDir>` path to packages installed")
-	rootCmd.MarkPersistentFlagRequired("meta-dir")
-	rootCmd.MarkPersistentFlagRequired("dist-dir")
+	rootCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
+	rootCmd.MarkPersistentFlagRequired("dir")
 
 	syncCmd := &cobra.Command{
 		Use:   "sync [flags]",
@@ -68,15 +66,11 @@ func NewCmd() *cobra.Command {
 }
 
 func doSearch(cmd *cobra.Command, args []string) error {
-	metaDir, err := cmd.Flags().GetString("meta-dir")
+	baseDir, err := cmd.Flags().GetString("dir")
 	if err != nil {
 		return err
 	}
-	distDir, err := cmd.Flags().GetString("dist-dir")
-	if err != nil {
-		return err
-	}
-	mgr, err := pkgs.NewPkgManager(metaDir, distDir)
+	mgr, err := pkgs.NewPkgManager(baseDir)
 	if err != nil {
 		return err
 	}
@@ -103,15 +97,11 @@ func doSearch(cmd *cobra.Command, args []string) error {
 }
 
 func doSync(cmd *cobra.Command, args []string) error {
-	metaDir, err := cmd.Flags().GetString("meta-dir")
+	baseDir, err := cmd.Flags().GetString("dir")
 	if err != nil {
 		return err
 	}
-	distDir, err := cmd.Flags().GetString("dist-dir")
-	if err != nil {
-		return err
-	}
-	mgr, err := pkgs.NewPkgManager(metaDir, distDir)
+	mgr, err := pkgs.NewPkgManager(baseDir)
 	if err != nil {
 		return err
 	}
@@ -123,11 +113,7 @@ func doSync(cmd *cobra.Command, args []string) error {
 }
 
 func doInstall(cmd *cobra.Command, args []string) error {
-	metaDir, err := cmd.Flags().GetString("meta-dir")
-	if err != nil {
-		return err
-	}
-	distDir, err := cmd.Flags().GetString("dist-dir")
+	baseDir, err := cmd.Flags().GetString("dir")
 	if err != nil {
 		return err
 	}
@@ -138,7 +124,7 @@ func doInstall(cmd *cobra.Command, args []string) error {
 	if version == "" {
 		version = "latest"
 	}
-	mgr, err := pkgs.NewPkgManager(metaDir, distDir)
+	mgr, err := pkgs.NewPkgManager(baseDir)
 	if err != nil {
 		return err
 	}
@@ -152,11 +138,7 @@ func doInstall(cmd *cobra.Command, args []string) error {
 }
 
 func doBuild(cmd *cobra.Command, args []string) error {
-	metaDir, err := cmd.Flags().GetString("meta-dir")
-	if err != nil {
-		return err
-	}
-	distDir, err := cmd.Flags().GetString("dist-dir")
+	baseDir, err := cmd.Flags().GetString("dir")
 	if err != nil {
 		return err
 	}
@@ -166,7 +148,7 @@ func doBuild(cmd *cobra.Command, args []string) error {
 		pkgVersion = "latest"
 	}
 
-	mgr, err := pkgs.NewPkgManager(metaDir, distDir)
+	mgr, err := pkgs.NewPkgManager(baseDir)
 	if err != nil {
 		return err
 	}

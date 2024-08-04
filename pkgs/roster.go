@@ -36,17 +36,14 @@ type Roster struct {
 
 type RosterOption func(*Roster)
 
-func NewRoster(metaDir string, distDir string, opts ...RosterOption) (*Roster, error) {
-	if abs, err := filepath.Abs(metaDir); err != nil {
+func NewRoster(baseDir string, opts ...RosterOption) (*Roster, error) {
+	if abs, err := filepath.Abs(baseDir); err != nil {
 		return nil, err
 	} else {
-		metaDir = abs
+		baseDir = abs
 	}
-	if abs, err := filepath.Abs(distDir); err != nil {
-		return nil, err
-	} else {
-		distDir = abs
-	}
+	metaDir := filepath.Join(baseDir, "meta")
+	distDir := filepath.Join(baseDir, "dist")
 
 	ret := &Roster{
 		metaDir: metaDir,

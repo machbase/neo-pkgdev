@@ -11,8 +11,8 @@ type PkgManager struct {
 	roster *Roster
 }
 
-func NewPkgManager(metaDir, distDir string) (*PkgManager, error) {
-	roster, err := NewRoster(metaDir, distDir)
+func NewPkgManager(pkgsDir string) (*PkgManager, error) {
+	roster, err := NewRoster(pkgsDir)
 	if err != nil {
 		return nil, err
 	}
