@@ -21,9 +21,10 @@ func Plan(pkgFiles []string, output io.Writer) error {
 		if meta.InjectRecipe.Type == "web" {
 			plan := &BuildPlan{
 				Platform: BuildPlatform{
-					OS:        []string{"ubuntu-latest"},
-					Name:      "linux+x86-64",
-					Container: "debian:buster-slim",
+					OS:   []string{"ubuntu-latest"},
+					Name: "linux+x86-64",
+					// Container: "debian:buster-slim",
+					Container: "ubuntu:22.04",
 					TinyName:  "*nix64",
 				},
 				Pkg: pkgName,
