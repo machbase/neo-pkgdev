@@ -53,9 +53,13 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 	if err := os.MkdirAll(dest, 0755); err != nil {
 		return err
 	}
-	srcTarBall := fmt.Sprintf("https://github.com/%s/%s/archive/refs/tags/%s.tar.gz", org, repo, latestInfo.TagName)
+	var archiveExt = ".tar.gz"
 	if runtime.GOOS == "windows" {
-		wgetCmd = exec.Command("powershell", "-c", fmt.Sprintf("Invoke-WebRequest %s -OutFile %s\\src.tar.gz", srcTarBall, dest))
+		archiveExt = ".zip"
+	}
+	srcTarBall := fmt.Sprintf("https://github.com/%s/%s/archive/refs/tags/%s%s", org, repo, latestInfo.TagName, archiveExt)
+	if runtime.GOOS == "windows" {
+		wgetCmd = exec.Command("powershell", "-c", fmt.Sprintf("Invoke-WebRequest %s -OutFile %s\\src.zip", srcTarBall, dest))
 	} else {
 		wgetCmd = exec.Command("sh", "-c", fmt.Sprintf("wget %s -O %s/src.tar.gz", srcTarBall, dest))
 	}
@@ -67,7 +71,7 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 	// Extract the source tarball
 	var tarCmd *exec.Cmd
 	if runtime.GOOS == "windows" {
-		tarCmd = exec.Command("powershell", "-c", fmt.Sprintf("Expand-Archive %s\\src.tar.gz -DestinationPath %s", dest, dest))
+		tarCmd = exec.Command("powershell", "-c", fmt.Sprintf("Expand-Archive %s\\src.zip -DestinationPath %s", dest, dest))
 	} else {
 		tarCmd = exec.Command("sh", "-c", fmt.Sprintf("tar xf %s/src.tar.gz --strip-components=1 -C %s", dest, dest))
 	}
@@ -75,6 +79,15 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 	tarCmd.Stderr = os.Stderr
 	if err := tarCmd.Run(); err != nil {
 		return err
+	}
+	// Windows strip-components
+	if runtime.GOOS == "windows" {
+		mvCmd := exec.Command("powershell", "-c", fmt.Sprintf("Move-Item %s\\%s-%s\\* %s", dest, repo, strings.TrimPrefix(latestInfo.TagName, "v"), dest))
+		mvCmd.Stdout = os.Stdout
+		mvCmd.Stderr = os.Stderr
+		if err := mvCmd.Run(); err != nil {
+			return err
+		}
 	}
 	// Create build script
 	var buildScript string
@@ -121,13 +134,9 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 	}
 	// Copy the built files to dist dir
 	var archiveCmd *exec.Cmd
-	var archiveExt = "tar.gz"
-	if runtime.GOOS == "windows" {
-		archiveExt = "zip"
-	}
-	var archivePath = fmt.Sprintf("%s-%s.%s", repoInfo.Repo, latestInfo.TagName, archiveExt)
+	var archivePath = fmt.Sprintf("%s-%s%s", repoInfo.Repo, latestInfo.TagName, archiveExt)
 	if len(meta.Platforms) >= 1 {
-		archivePath = fmt.Sprintf("%s-%s-%s-%s.%s", repoInfo.Repo, latestInfo.TagName, runtime.GOOS, runtime.GOARCH, archiveExt)
+		archivePath = fmt.Sprintf("%s-%s-%s-%s%s", repoInfo.Repo, latestInfo.TagName, runtime.GOOS, runtime.GOARCH, archiveExt)
 	}
 	if runtime.GOOS == "windows" {
 		args := []string{"-c", "Compress-Archive", "-DestinationPath", archivePath, "-Path", strings.Join(meta.Provides, ",")}
