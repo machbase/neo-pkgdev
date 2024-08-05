@@ -121,18 +121,18 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 	}
 	// Copy the built files to dist dir
 	var archiveCmd *exec.Cmd
-	var archivePath = fmt.Sprintf("%s-%s.tar.gz", repoInfo.Repo, latestInfo.TagName)
-	if len(meta.Platforms) >= 1 {
-		archivePath = fmt.Sprintf("%s-%s-%s-%s.tar.gz", repoInfo.Repo, latestInfo.TagName, runtime.GOOS, runtime.GOARCH)
-	}
-	script := []string{
-		"tar", "czf", archivePath,
-	}
-	script = append(script, meta.Provides...)
+	var archiveExt = "tar.gz"
 	if runtime.GOOS == "windows" {
-		archiveCmd = exec.Command("powershell", "-c", strings.Join(script, " "))
+		archiveExt = "zip"
+	}
+	var archivePath = fmt.Sprintf("%s-%s.%s", repoInfo.Repo, latestInfo.TagName, archiveExt)
+	if len(meta.Platforms) >= 1 {
+		archivePath = fmt.Sprintf("%s-%s-%s-%s.%s", repoInfo.Repo, latestInfo.TagName, runtime.GOOS, runtime.GOARCH, archiveExt)
+	}
+	if runtime.GOOS == "windows" {
+		archiveCmd = exec.Command("powershell", "-c", fmt.Sprintf("Compress-Archive %s -DestinationPath %s", strings.Join(meta.Provides, " "), archivePath))
 	} else {
-		archiveCmd = exec.Command("sh", "-c", strings.Join(script, " "))
+		archiveCmd = exec.Command("sh", "-c", "tar", "czf", archivePath, strings.Join(meta.Provides, " "))
 	}
 	archiveCmd.Dir = dest
 	archiveCmd.Stdout = os.Stdout
