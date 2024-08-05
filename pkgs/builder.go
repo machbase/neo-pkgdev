@@ -134,11 +134,15 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 	}
 	// Copy the built files to dist dir
 	var archiveCmd *exec.Cmd
-	var archivePath = fmt.Sprintf("%s-%s%s", repoInfo.Repo, latestInfo.TagName, archiveExt)
+	var versionName = strings.TrimPrefix(latestInfo.Name, "v")
+	var archivePath = fmt.Sprintf("%s-%s%s", repoInfo.Repo, versionName, archiveExt)
 	if len(meta.Platforms) >= 1 {
-		archivePath = fmt.Sprintf("%s-%s-%s-%s%s", repoInfo.Repo, latestInfo.TagName, runtime.GOOS, runtime.GOARCH, archiveExt)
+		archivePath = fmt.Sprintf("%s-%s-%s-%s%s", repoInfo.Repo, versionName, runtime.GOOS, runtime.GOARCH, archiveExt)
 	}
 	if runtime.GOOS == "windows" {
+		for i := range meta.Provides {
+			meta.Provides[i] = strings.ReplaceAll(meta.Provides[i], "/", "\\")
+		}
 		args := []string{"-c", "Compress-Archive", "-DestinationPath", archivePath, "-Path", strings.Join(meta.Provides, ",")}
 		fmt.Println("Debug", args)
 		archiveCmd = exec.Command("powershell", args...)
