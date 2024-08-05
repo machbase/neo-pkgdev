@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/machbase/neo-pkgdev/pkgs"
 	"github.com/spf13/cobra"
@@ -158,18 +159,6 @@ func doInstall(cmd *cobra.Command, args []string) error {
 	return err
 }
 
-func doAudit(cmd *cobra.Command, args []string) error {
-	pathPackageYml := args[0]
-	if _, err := os.Stat(pathPackageYml); err != nil {
-		return err
-	}
-	if err := pkgs.Audit(pathPackageYml, os.Stdout); err != nil {
-		return err
-	}
-	cmd.Print("Audit successful\n")
-	return nil
-}
-
 func doPlan(cmd *cobra.Command, args []string) error {
 	var writer io.Writer
 	if ghOut := os.Getenv("GITHUB_OUTPUT"); ghOut != "" {
@@ -195,6 +184,24 @@ func doPlan(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func doAudit(cmd *cobra.Command, args []string) error {
+	pathPackageYml := args[0]
+	pkgPath := os.Getenv("PKGS_PATH")
+
+	if pkgPath != "" && !strings.HasSuffix(pathPackageYml, "package.yml") && strings.HasSuffix(pathPackageYml, "package.yaml") {
+		pathPackageYml = filepath.Join(pkgPath, "projects", pathPackageYml, "package.yml")
+		fmt.Println("---->", pathPackageYml)
+	}
+	if _, err := os.Stat(pathPackageYml); err != nil {
+		return err
+	}
+	if err := pkgs.Audit(pathPackageYml, os.Stdout); err != nil {
+		return err
+	}
+	cmd.Print("Audit successful\n")
+	return nil
+}
+
 func doBuild(cmd *cobra.Command, args []string) error {
 	var writer io.Writer
 	if ghOut := os.Getenv("GITHUB_OUTPUT"); ghOut != "" {
@@ -207,9 +214,18 @@ func doBuild(cmd *cobra.Command, args []string) error {
 
 	installDest := cmd.Flag("install").Value.String()
 
-	pkgName := args[0]
-	path := filepath.Join("projects", pkgName, "package.yml")
-	if err := pkgs.Build(path, installDest, writer); err != nil {
+	pathPackageYml := args[0]
+	pkgPath := os.Getenv("PKGS_PATH")
+
+	if pkgPath != "" && !strings.HasSuffix(pathPackageYml, "package.yml") && strings.HasSuffix(pathPackageYml, "package.yaml") {
+		pathPackageYml = filepath.Join(pkgPath, "projects", pathPackageYml, "package.yml")
+		fmt.Println("---->", pathPackageYml)
+	}
+	if _, err := os.Stat(pathPackageYml); err != nil {
+		return err
+	}
+
+	if err := pkgs.Build(pathPackageYml, installDest, writer); err != nil {
 		return err
 	}
 	return nil
