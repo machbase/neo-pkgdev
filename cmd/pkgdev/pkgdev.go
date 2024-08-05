@@ -190,7 +190,6 @@ func doAudit(cmd *cobra.Command, args []string) error {
 
 	if pkgPath != "" && !strings.HasSuffix(pathPackageYml, "package.yml") && !strings.HasSuffix(pathPackageYml, "package.yaml") {
 		pathPackageYml = filepath.Join(pkgPath, "projects", pathPackageYml, "package.yml")
-		fmt.Println("---->", pathPackageYml)
 	}
 	if _, err := os.Stat(pathPackageYml); err != nil {
 		return err
@@ -203,17 +202,6 @@ func doAudit(cmd *cobra.Command, args []string) error {
 }
 
 func doBuild(cmd *cobra.Command, args []string) error {
-	var writer io.Writer
-	if ghOut := os.Getenv("GITHUB_OUTPUT"); ghOut != "" {
-		f, _ := os.OpenFile(ghOut, os.O_CREATE|os.O_WRONLY, 0644)
-		defer f.Close()
-		writer = f
-	} else {
-		writer = os.Stdout
-	}
-
-	installDest := cmd.Flag("install").Value.String()
-
 	pathPackageYml := args[0]
 	pkgPath := os.Getenv("PKGS_PATH")
 
@@ -224,8 +212,8 @@ func doBuild(cmd *cobra.Command, args []string) error {
 	if _, err := os.Stat(pathPackageYml); err != nil {
 		return err
 	}
-
-	if err := pkgs.Build(pathPackageYml, installDest, writer); err != nil {
+	installDest := cmd.Flag("install").Value.String()
+	if err := pkgs.Build(pathPackageYml, installDest, os.Stdout); err != nil {
 		return err
 	}
 	return nil
