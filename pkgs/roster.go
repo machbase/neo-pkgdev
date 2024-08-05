@@ -113,8 +113,9 @@ func (r *Roster) Sync() error {
 
 func (r *Roster) SyncRoster(rosterName RosterName, rosterRepoUrl string) error {
 	var repo *git.Repository
+	var isBare = false
 	if _, err := os.Stat(r.MetaDir(rosterName)); err != nil {
-		repo, err = git.PlainClone(r.MetaDir(rosterName), true, &git.CloneOptions{
+		repo, err = git.PlainClone(r.MetaDir(rosterName), isBare, &git.CloneOptions{
 			URL:           rosterRepoUrl,
 			RemoteName:    string(git.DefaultRemoteName),
 			ReferenceName: plumbing.ReferenceName("refs/heads/main"),
@@ -133,11 +134,11 @@ func (r *Roster) SyncRoster(rosterName RosterName, rosterRepoUrl string) error {
 
 	w, err := repo.Worktree()
 	if err != nil {
-		return err
+		return fmt.Errorf("worktree error: %w", err)
 	}
 	err = w.Reset(&git.ResetOptions{Mode: git.HardReset})
 	if err != nil {
-		return err
+		return fmt.Errorf("reset error: %w", err)
 	}
 
 	err = w.Pull(&git.PullOptions{
@@ -149,8 +150,7 @@ func (r *Roster) SyncRoster(rosterName RosterName, rosterRepoUrl string) error {
 		SingleBranch:  true,
 	})
 	if err != nil && err != git.NoErrAlreadyUpToDate {
-		fmt.Println(">>>", err.Error())
-		return err
+		return fmt.Errorf("pull error: %w", err)
 	}
 	r.WalkPackages(func(name string) bool {
 		meta, err := r.LoadPackageMeta(name)
