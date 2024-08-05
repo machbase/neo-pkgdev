@@ -26,7 +26,7 @@ func GithubRepoInfo(client *http.Client, org, repo string) (*GhRepoInfo, error) 
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("X-Github-Api-Version", "2022-11-28")
-	if token := os.Getenv("GH_TOKEN"); token != "" {
+	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	}
 
@@ -77,7 +77,7 @@ func GithubReleaseInfo(client *http.Client, org, repo, ver string) (*GhReleaseIn
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("X-Github-Api-Version", "2022-11-28")
-	if token := os.Getenv("GH_TOKEN"); token != "" {
+	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	}
 
@@ -110,7 +110,7 @@ func GithubLatestReleaseInfo(client *http.Client, org, repo string) (*GhReleaseI
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("X-Github-Api-Version", "2022-11-28")
-	if token := os.Getenv("GH_TOKEN"); token != "" {
+	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	}
 
