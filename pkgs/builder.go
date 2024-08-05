@@ -89,47 +89,75 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 			return err
 		}
 	}
-	// Create build script
-	var buildScript string
-	if f, err := makeScriptFile(meta.BuildRecipe.Script, dest, "__build__.sh"); err != nil {
-		return err
-	} else {
-		buildScript = f
-	}
-	// Run build script
-	var buildCmd *exec.Cmd
 	if runtime.GOOS == "windows" {
-		buildCmd = exec.Command("powershell", "-c", buildScript)
+		// Windows build script
+		for _, line := range meta.BuildRecipe.Script {
+			buildCmd := exec.Command("powershell", "-c", line)
+			buildCmd.Dir = dest
+			buildCmd.Env = append(os.Environ(), meta.BuildRecipe.Env...)
+			buildCmd.Stdout = os.Stdout
+			buildCmd.Stderr = os.Stderr
+			if err := buildCmd.Run(); err != nil {
+				return err
+			}
+		}
 	} else {
-		buildCmd = exec.Command("sh", "-c", buildScript)
-	}
-	buildCmd.Dir = dest
-	buildCmd.Env = append(os.Environ(), meta.BuildRecipe.Env...)
-	buildCmd.Stdout = os.Stdout
-	buildCmd.Stderr = os.Stderr
-	if err := buildCmd.Run(); err != nil {
-		return err
+		// Create build script
+		var buildScript string
+		if f, err := makeScriptFile(meta.BuildRecipe.Script, dest, "__build__.sh"); err != nil {
+			return err
+		} else {
+			buildScript = f
+		}
+		// Run build script
+		var buildCmd *exec.Cmd
+		if runtime.GOOS == "windows" {
+			buildCmd = exec.Command("powershell", "-c", "npm install")
+		} else {
+			buildCmd = exec.Command("sh", "-c", buildScript)
+		}
+		buildCmd.Dir = dest
+		buildCmd.Env = append(os.Environ(), meta.BuildRecipe.Env...)
+		buildCmd.Stdout = os.Stdout
+		buildCmd.Stderr = os.Stderr
+		if err := buildCmd.Run(); err != nil {
+			return err
+		}
 	}
 	// Test the built files
 	if meta.TestRecipe != nil {
-		var testScript string
-		if f, err := makeScriptFile(meta.TestRecipe.Script, dest, "__test__.sh"); err != nil {
-			return err
-		} else {
-			testScript = f
-		}
-		var testCmd *exec.Cmd
 		if runtime.GOOS == "windows" {
-			testCmd = exec.Command("powershell", "-c", testScript)
+			for _, line := range meta.TestRecipe.Script {
+				// Windows test script
+				buildCmd := exec.Command("powershell", "-c", line)
+				buildCmd.Dir = dest
+				buildCmd.Env = append(os.Environ(), meta.BuildRecipe.Env...)
+				buildCmd.Stdout = os.Stdout
+				buildCmd.Stderr = os.Stderr
+				if err := buildCmd.Run(); err != nil {
+					return err
+				}
+			}
 		} else {
-			testCmd = exec.Command("sh", "-c", testScript)
-		}
-		testCmd.Dir = dest
-		testCmd.Env = append(os.Environ(), meta.TestRecipe.Env...)
-		testCmd.Stdout = os.Stdout
-		testCmd.Stderr = os.Stderr
-		if err := testCmd.Run(); err != nil {
-			return err
+			var testScript string
+			if f, err := makeScriptFile(meta.TestRecipe.Script, dest, "__test__.sh"); err != nil {
+				return err
+			} else {
+				testScript = f
+			}
+			var testCmd *exec.Cmd
+			if runtime.GOOS == "windows" {
+				testCmd = exec.Command("powershell", "-c", testScript)
+			} else {
+				testCmd = exec.Command("sh", "-c", testScript)
+			}
+			testCmd.Dir = dest
+			testCmd.Env = append(os.Environ(), meta.TestRecipe.Env...)
+			testCmd.Stdout = os.Stdout
+			testCmd.Stderr = os.Stderr
+			if err := testCmd.Run(); err != nil {
+				return err
+			}
 		}
 	}
 	// Copy the built files to dist dir
@@ -140,9 +168,6 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 		archivePath = fmt.Sprintf("%s-%s-%s-%s%s", repoInfo.Repo, versionName, runtime.GOOS, runtime.GOARCH, archiveExt)
 	}
 	if runtime.GOOS == "windows" {
-		for i := range meta.Provides {
-			meta.Provides[i] = strings.ReplaceAll(meta.Provides[i], "/", "\\")
-		}
 		args := []string{"-c", "Compress-Archive", "-DestinationPath", archivePath, "-Path", strings.Join(meta.Provides, ",")}
 		fmt.Println("Debug", args)
 		archiveCmd = exec.Command("powershell", args...)
