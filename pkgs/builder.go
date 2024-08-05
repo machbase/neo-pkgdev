@@ -130,7 +130,9 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 		archivePath = fmt.Sprintf("%s-%s-%s-%s.%s", repoInfo.Repo, latestInfo.TagName, runtime.GOOS, runtime.GOARCH, archiveExt)
 	}
 	if runtime.GOOS == "windows" {
-		archiveCmd = exec.Command("powershell", "-c", fmt.Sprintf("Compress-Archive -Path %s -DestinationPath %s", strings.Join(meta.Provides, " "), archivePath))
+		args := []string{"-c", "Compress-Archive", "-DestinationPath", archivePath, "-Path"}
+		args = append(args, meta.Provides...)
+		archiveCmd = exec.Command("powershell", args...)
 	} else {
 		archiveCmd = exec.Command("sh", "-c", strings.Join([]string{"tar", "czf", archivePath, strings.Join(meta.Provides, " ")}, " "))
 	}
