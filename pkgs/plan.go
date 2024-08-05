@@ -29,15 +29,15 @@ func Plan(pkgFiles []string, output io.Writer) error {
 			case "linux":
 				switch strings.ToLower(parch) {
 				case "amd64":
-					bp.OS = append(bp.OS, "linux-latest")
+					bp.OS = append(bp.OS, "ubuntu-latest")
 					bp.Name = "linux+amd64"
 					bp.Container = "ubuntu:22.04"
 				case "arm64":
-					bp.OS = append(bp.OS, "linux-latest")
+					bp.OS = append(bp.OS, "ubuntu-latest")
 					bp.Name = "linux+arm64"
 					bp.Container = "arm64v8/ubuntu:22.04"
 				case "arm", "arm32", "armv7":
-					bp.OS = append(bp.OS, "linux-latest")
+					bp.OS = append(bp.OS, "ubuntu-latest")
 					bp.Name = "linux+arm"
 					bp.Container = "armv7/armhf-ubuntu"
 				default:
@@ -48,8 +48,10 @@ func Plan(pkgFiles []string, output io.Writer) error {
 				switch strings.ToLower(parch) {
 				case "arm64":
 					bp.OS = append(bp.OS, "macos-latest")
+					bp.Name = "macos+arm64"
 				case "amd64":
 					bp.OS = append(bp.OS, "macos-13")
+					bp.Name = "macos+amd64"
 				default:
 					fmt.Printf("platform %q is invalid", platform)
 					os.Exit(1)
@@ -58,6 +60,7 @@ func Plan(pkgFiles []string, output io.Writer) error {
 				switch strings.ToLower(parch) {
 				case "amd64":
 					bp.OS = append(bp.OS, "windows-latest")
+					bp.Name = "windows+amd64"
 				default:
 					fmt.Printf("platform %q is invalid", platform)
 					os.Exit(1)
@@ -72,7 +75,7 @@ func Plan(pkgFiles []string, output io.Writer) error {
 		if len(meta.Platforms) == 0 {
 			bp := BuildPlatform{
 				OS:        []string{"ubuntu-latest"},
-				Name:      "linux+amd64",
+				Name:      "linux+amd64+noarch",
 				Container: "ubuntu:22.04",
 			}
 			plans = append(plans, &BuildPlan{Platform: bp, Pkg: pkgName})
