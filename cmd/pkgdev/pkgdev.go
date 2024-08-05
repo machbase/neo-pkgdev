@@ -188,7 +188,7 @@ func doAudit(cmd *cobra.Command, args []string) error {
 	pathPackageYml := args[0]
 	pkgPath := os.Getenv("PKGS_PATH")
 
-	if pkgPath != "" && !strings.HasSuffix(pathPackageYml, "package.yml") && strings.HasSuffix(pathPackageYml, "package.yaml") {
+	if pkgPath != "" && !strings.HasSuffix(pathPackageYml, "package.yml") && !strings.HasSuffix(pathPackageYml, "package.yaml") {
 		pathPackageYml = filepath.Join(pkgPath, "projects", pathPackageYml, "package.yml")
 		fmt.Println("---->", pathPackageYml)
 	}
@@ -217,7 +217,7 @@ func doBuild(cmd *cobra.Command, args []string) error {
 	pathPackageYml := args[0]
 	pkgPath := os.Getenv("PKGS_PATH")
 
-	if pkgPath != "" && !strings.HasSuffix(pathPackageYml, "package.yml") && strings.HasSuffix(pathPackageYml, "package.yaml") {
+	if pkgPath != "" && !strings.HasSuffix(pathPackageYml, "package.yml") && !strings.HasSuffix(pathPackageYml, "package.yaml") {
 		pathPackageYml = filepath.Join(pkgPath, "projects", pathPackageYml, "package.yml")
 		fmt.Println("---->", pathPackageYml)
 	}
