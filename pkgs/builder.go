@@ -2,6 +2,7 @@ package pkgs
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -9,6 +10,28 @@ import (
 	"strings"
 	"time"
 )
+
+func Build(pathPackageYml string, dest string, output io.Writer) error {
+	// meta, err := pm.roster.LoadPackageMeta(name)
+	// if err != nil {
+	// 	return nil
+	// }
+	// builder, err := NewBuilder(
+	// 	meta, version,
+	// 	WithWorkDir(pm.roster.buildDir),
+	// 	WithDistDir(pm.roster.distDir),
+	// )
+	// if err != nil {
+	// 	return err
+	// }
+
+	// err = builder.Build(version)
+	// if err != nil {
+	// 	return err
+	// }
+	fmt.Fprintf(output, "Built %s\n", pathPackageYml)
+	return nil
+}
 
 type Builder struct {
 	ds *PackageMeta

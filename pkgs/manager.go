@@ -81,24 +81,3 @@ func (pm *PkgManager) Uninstall(name string, output io.Writer) (*PackageCache, e
 	pm.log.Info("uninstalled", name)
 	return cache, nil
 }
-
-func (pm *PkgManager) Build(pathPackageYml string) error {
-	// meta, err := pm.roster.LoadPackageMeta(name)
-	// if err != nil {
-	// 	return nil
-	// }
-	// builder, err := NewBuilder(
-	// 	meta, version,
-	// 	WithWorkDir(pm.roster.buildDir),
-	// 	WithDistDir(pm.roster.distDir),
-	// )
-	// if err != nil {
-	// 	return err
-	// }
-
-	// err = builder.Build(version)
-	// if err != nil {
-	// 	return err
-	// }
-	return nil
-}

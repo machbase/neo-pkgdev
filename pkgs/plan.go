@@ -45,7 +45,7 @@ func Plan(pkgFiles []string, output io.Writer) error {
 
 type BuildPlan struct {
 	Platform BuildPlatform `json:"platform"`
-	Pkg      string        `json:"pkg"`
+	Pkg      string        `json:"pkg"` // package name
 }
 
 type BuildPlatform struct {

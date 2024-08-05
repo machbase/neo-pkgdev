@@ -73,7 +73,7 @@ func NewCmd() *cobra.Command {
 		RunE:  doBuild,
 	}
 	buildCmd.Args = cobra.ExactArgs(1)
-	buildCmd.PersistentFlags().StringP("version", "v", "latest", "`<Version>` of the package to build")
+	buildCmd.PersistentFlags().String("install", "", "`<Dir>` path to install the package")
 
 	rootCmd.AddCommand(
 		syncCmd,
@@ -196,23 +196,22 @@ func doPlan(cmd *cobra.Command, args []string) error {
 }
 
 func doBuild(cmd *cobra.Command, args []string) error {
-	baseDir, err := cmd.Flags().GetString("dir")
-	if err != nil {
-		return err
-	}
-	pathPackageYml := args[0]
-	if _, err := os.Stat(pathPackageYml); err != nil {
-		return err
+	var writer io.Writer
+	if ghOut := os.Getenv("GITHUB_OUTPUT"); ghOut != "" {
+		f, _ := os.OpenFile(ghOut, os.O_CREATE|os.O_WRONLY, 0644)
+		defer f.Close()
+		writer = f
+	} else {
+		writer = os.Stdout
 	}
 
-	mgr, err := pkgs.NewPkgManager(baseDir)
-	if err != nil {
+	installDest := cmd.Flag("install").Value.String()
+
+	pkgName := args[0]
+	path := filepath.Join("projects", pkgName, "package.yml")
+	if err := pkgs.Build(path, installDest, writer); err != nil {
 		return err
 	}
-	if err := mgr.Build(pathPackageYml); err != nil {
-		return err
-	}
-	cmd.Print("Building successful\n")
 	return nil
 }
 
