@@ -2,8 +2,9 @@ package pkgdev
 
 import (
 	"fmt"
+	"io"
 	"os"
-	"strings"
+	"path/filepath"
 
 	"github.com/machbase/neo-pkgdev/pkgs"
 	"github.com/spf13/cobra"
@@ -24,14 +25,14 @@ func NewCmd() *cobra.Command {
 			cmd.Print(cmd.UsageString())
 		},
 	}
-	rootCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
-	rootCmd.MarkPersistentFlagRequired("dir")
 
 	syncCmd := &cobra.Command{
 		Use:   "sync [flags]",
 		Short: "Sync package index",
 		RunE:  doSync,
 	}
+	syncCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
+	syncCmd.MarkPersistentFlagRequired("dir")
 
 	searchCmd := &cobra.Command{
 		Use:   "search [flags] <package name>",
@@ -39,6 +40,8 @@ func NewCmd() *cobra.Command {
 		RunE:  doSearch,
 	}
 	searchCmd.Args = cobra.ExactArgs(1)
+	searchCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
+	searchCmd.MarkPersistentFlagRequired("dir")
 
 	installCmd := &cobra.Command{
 		Use:   "install [flags] <package name>",
@@ -46,7 +49,23 @@ func NewCmd() *cobra.Command {
 		RunE:  doInstall,
 	}
 	installCmd.Args = cobra.ExactArgs(1)
+	installCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
+	installCmd.MarkPersistentFlagRequired("dir")
 	installCmd.PersistentFlags().StringP("version", "v", "latest", "`<Version>` of the package to install")
+
+	auditCmd := &cobra.Command{
+		Use:   "audit [flags] <path to package.yml>",
+		Short: "Audit a package",
+		RunE:  doAudit,
+	}
+	auditCmd.Args = cobra.ExactArgs(1)
+
+	planCmd := &cobra.Command{
+		Use:   "plan [flags] <path to package.yml>",
+		Short: "Planning to build a package",
+		RunE:  doPlan,
+	}
+	planCmd.Args = cobra.MinimumNArgs(1)
 
 	buildCmd := &cobra.Command{
 		Use:   "build [flags] <path to package.yml>",
@@ -60,6 +79,8 @@ func NewCmd() *cobra.Command {
 		syncCmd,
 		searchCmd,
 		installCmd,
+		auditCmd,
+		planCmd,
 		buildCmd,
 	)
 	return rootCmd
@@ -137,22 +158,58 @@ func doInstall(cmd *cobra.Command, args []string) error {
 	return err
 }
 
+func doAudit(cmd *cobra.Command, args []string) error {
+	pathPackageYml := args[0]
+	if _, err := os.Stat(pathPackageYml); err != nil {
+		return err
+	}
+	if err := pkgs.Audit(pathPackageYml, os.Stdout); err != nil {
+		return err
+	}
+	cmd.Print("Audit successful\n")
+	return nil
+}
+
+func doPlan(cmd *cobra.Command, args []string) error {
+	var writer io.Writer
+	if ghOut := os.Getenv("GITHUB_OUTPUT"); ghOut != "" {
+		f, _ := os.OpenFile(ghOut, os.O_CREATE|os.O_WRONLY, 0644)
+		defer f.Close()
+		writer = f
+	} else {
+		writer = os.Stdout
+	}
+
+	files := []string{}
+	for _, pkgName := range args {
+		path := filepath.Join("projects", pkgName, "package.yml")
+		files = append(files, path)
+		if _, err := os.Stat(path); err != nil {
+			return err
+		}
+	}
+
+	if err := pkgs.Plan(files, writer); err != nil {
+		return err
+	}
+	return nil
+}
+
 func doBuild(cmd *cobra.Command, args []string) error {
 	baseDir, err := cmd.Flags().GetString("dir")
 	if err != nil {
 		return err
 	}
-	name := args[0]
-	pkgName, pkgVersion, found := strings.Cut(name, ":")
-	if !found {
-		pkgVersion = "latest"
+	pathPackageYml := args[0]
+	if _, err := os.Stat(pathPackageYml); err != nil {
+		return err
 	}
 
 	mgr, err := pkgs.NewPkgManager(baseDir)
 	if err != nil {
 		return err
 	}
-	if err := mgr.Build(pkgName, pkgVersion); err != nil {
+	if err := mgr.Build(pathPackageYml); err != nil {
 		return err
 	}
 	cmd.Print("Building successful\n")

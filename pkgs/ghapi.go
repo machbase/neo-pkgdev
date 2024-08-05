@@ -50,15 +50,23 @@ func GithubRepoInfo(client *http.Client, org, repo string) (*GhRepoInfo, error) 
 }
 
 type GhRepoInfo struct {
-	Organization  string `json:"organization" yaml:"organization"`
-	Repo          string `json:"repo" yaml:"repo"`
-	Name          string `json:"name" yaml:"name"`
-	FullName      string `json:"full_name" yaml:"full_name"`
-	Description   string `json:"description" yaml:"description"`
-	Homepage      string `json:"homepage" yaml:"homepage"`
-	Language      string `json:"language" yaml:"language"`
-	License       string `json:"license" yaml:"license"`
-	DefaultBranch string `json:"default_branch" yaml:"default_branch"`
+	Organization  string     `json:"organization" yaml:"organization"`
+	Repo          string     `json:"repo" yaml:"repo"`
+	Name          string     `json:"name" yaml:"name"`
+	FullName      string     `json:"full_name" yaml:"full_name"`
+	Description   string     `json:"description" yaml:"description"`
+	Homepage      string     `json:"homepage" yaml:"homepage"`
+	Language      string     `json:"language" yaml:"language"`
+	License       *GhLicense `json:"license" yaml:"license"`
+	DefaultBranch string     `json:"default_branch" yaml:"default_branch"`
+}
+
+type GhLicense struct {
+	Key    string `json:"key"`
+	Name   string `json:"name"`
+	SpdxId string `json:"spdx_id"`
+	Url    string `json:"url"`
+	NodeId string `json:"node_id"`
 }
 
 func GithubReleaseInfo(client *http.Client, org, repo, ver string) (*GhReleaseInfo, error) {
