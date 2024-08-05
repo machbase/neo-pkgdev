@@ -372,13 +372,17 @@ func (r *Roster) Install(name string, output io.Writer) error {
 	}
 
 	if meta.InstallRecipe != nil {
-		cmd := exec.Command("sh", "-c", meta.InstallRecipe.Script)
-		cmd.Dir = currentVerDir
-		cmd.Stdout = output
-		cmd.Stderr = output
-		err = cmd.Run()
-		if err != nil {
+		if sc, err := makeScriptFile(meta.InstallRecipe.Script, unarchiveDir, "__install__.sh"); err != nil {
 			return err
+		} else {
+			cmd := exec.Command("sh", "-c", sc)
+			cmd.Dir = currentVerDir
+			cmd.Stdout = output
+			cmd.Stderr = output
+			err = cmd.Run()
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil

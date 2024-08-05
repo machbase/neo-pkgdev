@@ -7,9 +7,9 @@ import (
 )
 
 type PackageMeta struct {
-	InjectRecipe    InjectRecipe     `yaml:"inject" json:"inject"`
 	Distributable   Distributable    `yaml:"distributable" json:"distributable"`
 	Description     string           `yaml:"description" json:"description"`
+	Platforms       []string         `yaml:"platforms" json:"platforms"`
 	BuildRecipe     BuildRecipe      `yaml:"build" json:"build"`
 	Provides        []string         `yaml:"provides" json:"provides"`
 	TestRecipe      *TestRecipe      `yaml:"test,omitempty" json:"test,omitempty"`
@@ -17,10 +17,6 @@ type PackageMeta struct {
 	UninstallRecipe *UninstallRecipe `yaml:"uninstall,omitempty" json:"uninstall,omitempty"`
 
 	rosterName RosterName `json:"-"`
-}
-
-type InjectRecipe struct {
-	Type string `yaml:"type"`
 }
 
 type Distributable struct {
@@ -35,15 +31,18 @@ type BuildRecipe struct {
 }
 
 type TestRecipe struct {
-	Script string `yaml:"script"`
+	Script []string `yaml:"script"`
+	Env    []string `yaml:"env"`
 }
 
 type InstallRecipe struct {
-	Script string `yaml:"script"`
+	Script []string `yaml:"script"`
+	Env    []string `yaml:"env"`
 }
 
 type UninstallRecipe struct {
-	Script string `yaml:"script"`
+	Script []string `yaml:"script"`
+	Env    []string `yaml:"env"`
 }
 
 func parsePackageMetaFile(path string) (*PackageMeta, error) {

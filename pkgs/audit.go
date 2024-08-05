@@ -17,7 +17,7 @@ func Audit(pathPackageYml string, output io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if err := auditInjectRecipe(meta); err != nil {
+	if err := auditPlatforms(meta); err != nil {
 		return err
 	}
 	fmt.Fprintln(output, ">> Distributable")
@@ -77,12 +77,23 @@ func Audit(pathPackageYml string, output io.Writer) error {
 	return nil
 }
 
-func auditInjectRecipe(meta *PackageMeta) error {
-	if meta.InjectRecipe.Type == "" {
-		return fmt.Errorf("InjectRecipe.Type is empty")
+func auditPlatforms(meta *PackageMeta) error {
+	if len(meta.Platforms) == 0 {
+		return nil
 	}
-	if meta.InjectRecipe.Type != "web" {
-		return fmt.Errorf("InjectRecipe.Type is invalid")
+	for _, platform := range meta.Platforms {
+		os, arch, ok := strings.Cut(platform, "/")
+		if !ok {
+			return fmt.Errorf("platform %q is invalid", platform)
+		}
+		switch strings.ToLower(os) {
+		case "linux", "darwin", "windows":
+			switch strings.ToLower(arch) {
+			case "amd64", "arm64", "arm":
+				continue
+			}
+		}
+		return fmt.Errorf("platform %q is invalid", platform)
 	}
 	return nil
 }

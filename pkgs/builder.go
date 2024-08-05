@@ -7,30 +7,153 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
 
 func Build(pathPackageYml string, dest string, output io.Writer) error {
-	// meta, err := pm.roster.LoadPackageMeta(name)
-	// if err != nil {
-	// 	return nil
-	// }
-	// builder, err := NewBuilder(
-	// 	meta, version,
-	// 	WithWorkDir(pm.roster.buildDir),
-	// 	WithDistDir(pm.roster.distDir),
-	// )
-	// if err != nil {
-	// 	return err
-	// }
+	meta, err := parsePackageMetaFile(pathPackageYml)
+	if err != nil {
+		return err
+	}
 
-	// err = builder.Build(version)
-	// if err != nil {
-	// 	return err
-	// }
-	fmt.Fprintf(output, "Built %s\n", pathPackageYml)
+	if meta.Distributable.Url != "" {
+		fmt.Fprintln(output, "Distribution URL:", meta.Distributable.Url)
+		fmt.Fprintln(output, "Skip Build.")
+		return nil
+	}
+
+	org, repo, err := GithubSplitPath(meta.Distributable.Github)
+	if err != nil {
+		return err
+	}
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+		},
+		Timeout: time.Duration(10) * time.Second,
+	}
+	repoInfo, err := GithubRepoInfo(httpClient, org, repo)
+	if err != nil {
+		return err
+	}
+
+	latestInfo, err := GithubLatestReleaseInfo(httpClient, org, repo)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintln(output, "Build", repoInfo.Organization, repoInfo.Repo, latestInfo.TagName)
+
+	// Download the source tarball
+	var wgetCmd *exec.Cmd
+	if dest == "" {
+		dest = "./tmp"
+	}
+	if err := os.MkdirAll(dest, 0755); err != nil {
+		return err
+	}
+	srcTarBall := fmt.Sprintf("https://github.com/%s/%s/archive/refs/tags/%s.tar.gz", org, repo, latestInfo.TagName)
+	if runtime.GOOS == "windows" {
+		wgetCmd = exec.Command("powershell", "-c", fmt.Sprintf("Invoke-WebRequest %s -OutFile %s\\src.tar.gz", srcTarBall, dest))
+	} else {
+		wgetCmd = exec.Command("sh", "-c", fmt.Sprintf("wget %s -O %s/src.tar.gz", srcTarBall, dest))
+	}
+	wgetCmd.Stdout = os.Stdout
+	wgetCmd.Stderr = os.Stderr
+	if err := wgetCmd.Run(); err != nil {
+		return err
+	}
+	// Extract the source tarball
+	var tarCmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		tarCmd = exec.Command("powershell", "-c", fmt.Sprintf("Expand-Archive %s\\src.tar.gz -DestinationPath %s", dest, dest))
+	} else {
+		tarCmd = exec.Command("sh", "-c", fmt.Sprintf("tar xf %s/src.tar.gz --strip-components=1 -C %s", dest, dest))
+	}
+	tarCmd.Stdout = os.Stdout
+	tarCmd.Stderr = os.Stderr
+	if err := tarCmd.Run(); err != nil {
+		return err
+	}
+	// Create build script
+	var buildScript string
+	if f, err := makeScriptFile(meta.BuildRecipe.Script, dest, "__build__.sh"); err != nil {
+		return err
+	} else {
+		buildScript = f
+	}
+	// Run build script
+	var buildCmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		buildCmd = exec.Command("powershell", "-c", buildScript)
+	} else {
+		buildCmd = exec.Command("sh", "-c", buildScript)
+	}
+	buildCmd.Dir = dest
+	buildCmd.Env = append(os.Environ(), meta.BuildRecipe.Env...)
+	buildCmd.Stdout = os.Stdout
+	buildCmd.Stderr = os.Stderr
+	if err := buildCmd.Run(); err != nil {
+		return err
+	}
+	// Test the built files
+	if meta.TestRecipe != nil {
+		var testScript string
+		if f, err := makeScriptFile(meta.TestRecipe.Script, dest, "__test__.sh"); err != nil {
+			return err
+		} else {
+			testScript = f
+		}
+		var testCmd *exec.Cmd
+		if runtime.GOOS == "windows" {
+			testCmd = exec.Command("powershell", "-c", testScript)
+		} else {
+			testCmd = exec.Command("sh", "-c", testScript)
+		}
+		testCmd.Dir = dest
+		testCmd.Env = append(os.Environ(), meta.TestRecipe.Env...)
+		testCmd.Stdout = os.Stdout
+		testCmd.Stderr = os.Stderr
+		if err := testCmd.Run(); err != nil {
+			return err
+		}
+	}
+	// Copy the built files to dist dir
+	var archiveCmd *exec.Cmd
+	var archivePath = fmt.Sprintf("%s-%s.tar.gz", repoInfo.Repo, latestInfo.TagName)
+	if len(meta.Platforms) >= 1 {
+		archivePath = fmt.Sprintf("%s-%s-%s-%s.tar.gz", repoInfo.Repo, latestInfo.TagName, runtime.GOOS, runtime.GOARCH)
+	}
+	script := []string{
+		"tar", "czf", archivePath,
+	}
+	script = append(script, meta.Provides...)
+	if runtime.GOOS == "windows" {
+		archiveCmd = exec.Command("powershell", "-c", strings.Join(script, " "))
+	} else {
+		archiveCmd = exec.Command("sh", "-c", strings.Join(script, " "))
+	}
+	archiveCmd.Dir = dest
+	archiveCmd.Stdout = os.Stdout
+	archiveCmd.Stderr = os.Stderr
+	if err := archiveCmd.Run(); err != nil {
+		return err
+	}
 	return nil
+}
+
+func makeScriptFile(script []string, destDir string, filename string) (string, error) {
+	var buildScript, _ = filepath.Abs(filepath.Join(destDir, filename))
+	f, err := os.OpenFile(buildScript, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	for _, line := range script {
+		fmt.Fprintln(f, line)
+	}
+	return buildScript, nil
 }
 
 type Builder struct {

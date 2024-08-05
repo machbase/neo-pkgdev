@@ -18,21 +18,64 @@ func Plan(pkgFiles []string, output io.Writer) error {
 			os.Exit(1)
 		}
 		pkgName := filepath.Base(filepath.Dir(pkgPath))
-		if meta.InjectRecipe.Type == "web" {
-			plan := &BuildPlan{
-				Platform: BuildPlatform{
-					OS:   []string{"ubuntu-latest"},
-					Name: "linux+x86-64",
-					// Container: "debian:buster-slim",
-					Container: "ubuntu:22.04",
-					TinyName:  "*nix64",
-				},
-				Pkg: pkgName,
+		for _, platform := range meta.Platforms {
+			var bp BuildPlatform
+			pos, parch, ok := strings.Cut(platform, "/")
+			if !ok {
+				fmt.Printf("platform %q is invalid", platform)
+				os.Exit(1)
 			}
-			plans = append(plans, plan)
-		} else {
-			fmt.Println("package does not support web injection")
-			os.Exit(1)
+			switch strings.ToLower(pos) {
+			case "linux":
+				switch strings.ToLower(parch) {
+				case "amd64":
+					bp.OS = append(bp.OS, "linux-latest")
+					bp.Name = "linux+amd64"
+					bp.Container = "ubuntu:22.04"
+				case "arm64":
+					bp.OS = append(bp.OS, "linux-latest")
+					bp.Name = "linux+arm64"
+					bp.Container = "arm64v8/ubuntu:22.04"
+				case "arm", "arm32", "armv7":
+					bp.OS = append(bp.OS, "linux-latest")
+					bp.Name = "linux+arm"
+					bp.Container = "armv7/armhf-ubuntu"
+				default:
+					fmt.Printf("platform %q is invalid", platform)
+					os.Exit(1)
+				}
+			case "darwin":
+				switch strings.ToLower(parch) {
+				case "arm64":
+					bp.OS = append(bp.OS, "macos-latest")
+				case "amd64":
+					bp.OS = append(bp.OS, "macos-13")
+				default:
+					fmt.Printf("platform %q is invalid", platform)
+					os.Exit(1)
+				}
+			case "windows":
+				switch strings.ToLower(parch) {
+				case "amd64":
+					bp.OS = append(bp.OS, "windows-latest")
+				default:
+					fmt.Printf("platform %q is invalid", platform)
+					os.Exit(1)
+				}
+			default:
+				fmt.Printf("platform %q is invalid", platform)
+				os.Exit(1)
+			}
+			plans = append(plans, &BuildPlan{Platform: bp, Pkg: pkgName})
+		}
+		// platform independent
+		if len(meta.Platforms) == 0 {
+			bp := BuildPlatform{
+				OS:        []string{"ubuntu-latest"},
+				Name:      "linux+amd64",
+				Container: "ubuntu:22.04",
+			}
+			plans = append(plans, &BuildPlan{Platform: bp, Pkg: pkgName})
 		}
 	}
 	sb := &strings.Builder{}
@@ -53,5 +96,4 @@ type BuildPlatform struct {
 	OS        []string `json:"os"`
 	Name      string   `json:"name"`
 	Container string   `json:"container,omitempty"`
-	TinyName  string   `json:"tinyname,omitempty"`
 }

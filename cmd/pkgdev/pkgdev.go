@@ -169,9 +169,10 @@ func doPlan(cmd *cobra.Command, args []string) error {
 		writer = os.Stdout
 	}
 
+	pkgPath := os.Getenv("PKGS_PATH")
 	files := []string{}
 	for _, pkgName := range args {
-		path := filepath.Join("projects", pkgName, "package.yml")
+		path := filepath.Join(pkgPath, "projects", pkgName, "package.yml")
 		files = append(files, path)
 		if _, err := os.Stat(path); err != nil {
 			return err
@@ -207,7 +208,6 @@ func doBuild(cmd *cobra.Command, args []string) error {
 
 	if pkgPath != "" && !strings.HasSuffix(pathPackageYml, "package.yml") && !strings.HasSuffix(pathPackageYml, "package.yaml") {
 		pathPackageYml = filepath.Join(pkgPath, "projects", pathPackageYml, "package.yml")
-		fmt.Println("---->", pathPackageYml)
 	}
 	if _, err := os.Stat(pathPackageYml); err != nil {
 		return err
