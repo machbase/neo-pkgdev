@@ -107,8 +107,10 @@ func auditDescription(meta *PackageMeta) error {
 }
 
 func auditLicense(nfo *GhRepoInfo) error {
-	if nfo.License.SpdxId == "" {
-		return errors.New("license is not specified. (refer to https://spdx.org/licenses/)")
+	if nfo.License == nil || nfo.License.SpdxId == "" {
+		if nfo.Organization != "machbase" {
+			return errors.New("license is not specified. (refer to https://spdx.org/licenses/)")
+		}
 	}
 	return nil
 }
