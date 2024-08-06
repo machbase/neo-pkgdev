@@ -145,7 +145,7 @@ func (r *Roster) SyncRoster(rosterName RosterName, rosterRepoUrl string) error {
 		RemoteURL:     rosterRepoUrl,
 		RemoteName:    string(git.DefaultRemoteName),
 		ReferenceName: plumbing.ReferenceName("refs/heads/main"),
-		Depth:         1,
+		Depth:         0,
 		Force:         true,
 		SingleBranch:  true,
 	})
