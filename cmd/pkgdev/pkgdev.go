@@ -212,8 +212,16 @@ func doBuild(cmd *cobra.Command, args []string) error {
 	if _, err := os.Stat(pathPackageYml); err != nil {
 		return err
 	}
+	var writer io.Writer
+	if ghOut := os.Getenv("GITHUB_OUTPUT"); ghOut != "" {
+		f, _ := os.OpenFile(ghOut, os.O_CREATE|os.O_WRONLY, 0644)
+		defer f.Close()
+		writer = f
+	} else {
+		writer = os.Stdout
+	}
 	installDest := cmd.Flag("install").Value.String()
-	if err := pkgs.Build(pathPackageYml, installDest, os.Stdout); err != nil {
+	if err := pkgs.Build(pathPackageYml, installDest, writer); err != nil {
 		return err
 	}
 	return nil

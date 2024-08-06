@@ -10,6 +10,11 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/seqsense/s3sync"
 )
 
 func Build(pathPackageYml string, dest string, output io.Writer) error {
@@ -179,6 +184,26 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 	archiveCmd.Stderr = os.Stderr
 	if err := archiveCmd.Run(); err != nil {
 		return err
+	}
+
+	s3_key_id := os.Getenv("AWS_ACCESS_KEY_ID")
+	s3_secret_key := os.Getenv("AWS_SECRET_ACCESS_KEY")
+	if s3_key_id != "" && s3_secret_key != "" {
+		sess, err := session.NewSession(&aws.Config{
+			Region:      aws.String("ap-northeast-2"),
+			Credentials: credentials.NewStaticCredentials(s3_key_id, s3_secret_key, ""),
+		})
+		if err != nil {
+			return err
+		}
+		syncManager := s3sync.New(sess)
+		err = syncManager.Sync(
+			archivePath,
+			fmt.Sprintf("s3://p-packages/neo-pkg/%s/%s", org, repo),
+		)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
