@@ -95,7 +95,7 @@ func GithubReleaseInfo(client *http.Client, org, repo, ver string) (*GhReleaseIn
 	if rsp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d\nURL: %s\n%s", rsp.StatusCode, endpoint, string(body))
 	}
-	ghRelease := &GhReleaseInfo{Orgnization: strings.ToLower(org), Repo: strings.ToLower(repo)}
+	ghRelease := &GhReleaseInfo{Organization: strings.ToLower(org), Repo: strings.ToLower(repo)}
 	if err := ghRelease.Unmarshal(body); err != nil {
 		return nil, err
 	}
@@ -127,7 +127,7 @@ func GithubLatestReleaseInfo(client *http.Client, org, repo string) (*GhReleaseI
 	if rsp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d\nURL: %s\n%s", rsp.StatusCode, endpoint, string(body))
 	}
-	ghRelease := &GhReleaseInfo{Orgnization: strings.ToLower(org), Repo: strings.ToLower(repo)}
+	ghRelease := &GhReleaseInfo{Organization: strings.ToLower(org), Repo: strings.ToLower(repo)}
 	if err := ghRelease.Unmarshal(body); err != nil {
 		return nil, err
 	}
@@ -135,32 +135,32 @@ func GithubLatestReleaseInfo(client *http.Client, org, repo string) (*GhReleaseI
 }
 
 type GhReleaseInfo struct {
-	Orgnization string    `json:"orgnization"`
-	Repo        string    `json:"repo"`
-	Name        string    `json:"name"`
-	TagName     string    `json:"tag_name"`
-	PublishedAt time.Time `json:"published_at"`
-	HtmlUrl     string    `json:"html_url"`
-	TarballUrl  string    `json:"tarball_url"`
-	Prerelease  bool      `json:"prerelease"`
+	Organization string    `json:"organization"`
+	Repo         string    `json:"repo"`
+	Name         string    `json:"name"`
+	TagName      string    `json:"tag_name"`
+	PublishedAt  time.Time `json:"published_at"`
+	HtmlUrl      string    `json:"html_url"`
+	TarballUrl   string    `json:"tarball_url"`
+	Prerelease   bool      `json:"prerelease"`
 }
 
-func (ghrel *GhReleaseInfo) Unmarshal(body []byte) error {
-	ghTimeformat := "2006-01-02T15:04:05Z" //"2024-07-29T05:17:51Z"
+func (ghRel *GhReleaseInfo) Unmarshal(body []byte) error {
+	ghTimeFormat := "2006-01-02T15:04:05Z" //"2024-07-29T05:17:51Z"
 	data := map[string]any{}
 	if err := json.Unmarshal(body, &data); err != nil {
 		return err
 	}
 
-	ghrel.Name = data["name"].(string)
-	ghrel.TagName = data["tag_name"].(string)
-	if t, err := time.Parse(ghTimeformat, data["published_at"].(string)); err != nil {
+	ghRel.Name = data["name"].(string)
+	ghRel.TagName = data["tag_name"].(string)
+	if t, err := time.Parse(ghTimeFormat, data["published_at"].(string)); err != nil {
 		return err
 	} else {
-		ghrel.PublishedAt = t
+		ghRel.PublishedAt = t
 	}
-	ghrel.HtmlUrl = data["html_url"].(string)
-	ghrel.TarballUrl = data["tarball_url"].(string)
-	ghrel.Prerelease = data["prerelease"].(bool)
+	ghRel.HtmlUrl = data["html_url"].(string)
+	ghRel.TarballUrl = data["tarball_url"].(string)
+	ghRel.Prerelease = data["prerelease"].(bool)
 	return nil
 }

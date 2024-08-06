@@ -53,7 +53,11 @@ func Audit(pathPackageYml string, output io.Writer) error {
 	if err := auditLicense(repoInfo); err != nil {
 		return err
 	} else {
-		fmt.Fprintln(output, "   ", "License", repoInfo.License.SpdxId)
+		if repoInfo.License == nil || repoInfo.License.SpdxId == "" {
+			fmt.Fprintln(output, "   ", "License not specified")
+		} else {
+			fmt.Fprintln(output, "   ", "License", repoInfo.License.SpdxId)
+		}
 	}
 
 	if err := auditDefaultBranch(repoInfo); err != nil {
