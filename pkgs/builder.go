@@ -185,6 +185,7 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 	if err := archiveCmd.Run(); err != nil {
 		return err
 	}
+	fmt.Fprintf(output, "Built %s\n", archivePath)
 
 	s3_key_id := os.Getenv("AWS_ACCESS_KEY_ID")
 	s3_secret_key := os.Getenv("AWS_SECRET_ACCESS_KEY")
@@ -199,11 +200,13 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 		syncManager := s3sync.New(sess)
 		err = syncManager.Sync(
 			archivePath,
-			fmt.Sprintf("s3://p-packages/neo-pkg/%s/%s", org, repo),
+			fmt.Sprintf("s3://p-edge-packages/neo-pkg/%s/%s", org, repo),
 		)
 		if err != nil {
 			return err
 		}
+	} else {
+		fmt.Fprintln(output, "Skip deploy.")
 	}
 	return nil
 }
