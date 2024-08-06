@@ -190,6 +190,7 @@ func makeScriptFile(script []string, destDir string, filename string) (string, e
 		return "", err
 	}
 	defer f.Close()
+	fmt.Fprintln(f, "set -e")
 	for _, line := range script {
 		fmt.Fprintln(f, line)
 	}
