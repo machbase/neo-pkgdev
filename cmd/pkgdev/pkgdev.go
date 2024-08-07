@@ -29,11 +29,12 @@ func NewCmd() *cobra.Command {
 
 	syncCmd := &cobra.Command{
 		Use:   "sync [flags]",
-		Short: "Sync package index",
+		Short: "Sync package roster",
 		RunE:  doSync,
 	}
 	syncCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
 	syncCmd.MarkPersistentFlagRequired("dir")
+	syncCmd.PersistentFlags().Bool("check", false, "Check updates only")
 
 	searchCmd := &cobra.Command{
 		Use:   "search [flags] <package name>",
@@ -44,6 +45,22 @@ func NewCmd() *cobra.Command {
 	searchCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
 	searchCmd.MarkPersistentFlagRequired("dir")
 
+	updateCmd := &cobra.Command{
+		Use:   "update [flags]",
+		Short: "Update a package roster",
+		RunE:  doUpdate,
+	}
+	updateCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
+	updateCmd.MarkPersistentFlagRequired("dir")
+
+	upgradeCmd := &cobra.Command{
+		Use:   "upgrade [flags] <package name, ...>",
+		Short: "Upgrade packages",
+		RunE:  doUpgrade,
+	}
+	upgradeCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
+	upgradeCmd.MarkPersistentFlagRequired("dir")
+
 	installCmd := &cobra.Command{
 		Use:   "install [flags] <package name>",
 		Short: "Install a package",
@@ -52,7 +69,15 @@ func NewCmd() *cobra.Command {
 	installCmd.Args = cobra.ExactArgs(1)
 	installCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
 	installCmd.MarkPersistentFlagRequired("dir")
-	installCmd.PersistentFlags().StringP("version", "v", "latest", "`<Version>` of the package to install")
+
+	uninstallCmd := &cobra.Command{
+		Use:   "uninstall [flags] <package name>",
+		Short: "Uninstall a package",
+		RunE:  doUninstall,
+	}
+	uninstallCmd.Args = cobra.ExactArgs(1)
+	uninstallCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
+	uninstallCmd.MarkPersistentFlagRequired("dir")
 
 	auditCmd := &cobra.Command{
 		Use:   "audit [flags] <path to package.yml>",
@@ -77,9 +102,12 @@ func NewCmd() *cobra.Command {
 	buildCmd.PersistentFlags().String("install", "", "`<Dir>` path to install the package")
 
 	rootCmd.AddCommand(
-		syncCmd,
-		searchCmd,
+		updateCmd,
+		upgradeCmd,
 		installCmd,
+		uninstallCmd,
+		searchCmd,
+		syncCmd,
 		auditCmd,
 		planCmd,
 		buildCmd,
@@ -123,14 +151,80 @@ func doSync(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	check, err := cmd.Flags().GetBool("check")
+	if err != nil {
+		return err
+	}
+
 	mgr, err := pkgs.NewPkgManager(baseDir)
 	if err != nil {
 		return err
 	}
-	err = mgr.Sync()
+	if check {
+		check, err := mgr.SyncCheck()
+		if err != nil {
+			return err
+		}
+		if check != nil && check.NeedSync {
+			fmt.Println("Need to sync")
+		} else {
+			fmt.Println("Already up-to-date")
+		}
+	} else {
+		err = mgr.Sync()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func doUpdate(cmd *cobra.Command, args []string) error {
+	baseDir, err := cmd.Flags().GetString("dir")
 	if err != nil {
 		return err
 	}
+	mgr, err := pkgs.NewPkgManager(baseDir)
+	if err != nil {
+		return err
+	}
+	upd, err := mgr.Update()
+	if err != nil {
+		return err
+	}
+	if upd == nil || len(upd.Updated) == 0 && len(upd.Upgradable) == 0 {
+		fmt.Println("Already up-to-date")
+	} else {
+		fmt.Println("Updated packages:")
+		if len(upd.Updated) > 0 {
+			for _, p := range upd.Updated {
+				fmt.Println("  ", p.PkgName, "updated", p.LatestRelease)
+			}
+		} else {
+			fmt.Println("   no updated packages")
+		}
+		fmt.Println("Upgradable packages:")
+		if len(upd.Upgradable) > 0 {
+			for _, p := range upd.Upgradable {
+				fmt.Println("  ", p.PkgName, p.InstalledVersion, "-->", p.LatestRelease, "available")
+			}
+		} else {
+			fmt.Println("   no upgradable packages")
+		}
+	}
+	return nil
+}
+
+func doUpgrade(cmd *cobra.Command, args []string) error {
+	baseDir, err := cmd.Flags().GetString("dir")
+	if err != nil {
+		return err
+	}
+	mgr, err := pkgs.NewPkgManager(baseDir)
+	if err != nil {
+		return err
+	}
+	mgr.Upgrade(args)
 	return nil
 }
 
@@ -139,23 +233,33 @@ func doInstall(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	version, err := cmd.Flags().GetString("version")
+	mgr, err := pkgs.NewPkgManager(baseDir)
 	if err != nil {
 		return err
 	}
-	if version == "" {
-		version = "latest"
+	cache, err := mgr.Install(args[0], os.Stdout)
+	if err != nil {
+		return err
+	}
+	fmt.Println("Installed to", cache.InstalledPath, cache.InstalledVersion)
+	return err
+}
+
+func doUninstall(cmd *cobra.Command, args []string) error {
+	baseDir, err := cmd.Flags().GetString("dir")
+	if err != nil {
+		return err
 	}
 	mgr, err := pkgs.NewPkgManager(baseDir)
 	if err != nil {
 		return err
 	}
 
-	cache, err := mgr.Install(args[0], os.Stdout)
+	_, err = mgr.Uninstall(args[0], os.Stdout)
 	if err != nil {
 		return err
 	}
-	fmt.Println("Installed to", cache.InstalledPath, cache.InstalledVersion)
+	fmt.Println("Uninstalled", args[0])
 	return err
 }
 

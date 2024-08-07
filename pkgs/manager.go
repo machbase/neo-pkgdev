@@ -22,6 +22,26 @@ func NewPkgManager(pkgsDir string) (*PkgManager, error) {
 	}, nil
 }
 
+func (pm *PkgManager) Update() (*Updates, error) {
+	return pm.roster.Update()
+}
+
+func (pm *PkgManager) Upgrade(pkgs []string) error {
+	return pm.roster.Upgrade(pkgs)
+}
+
+func (pm *PkgManager) SyncCheck() (*SyncCheck, error) {
+	ret, err := pm.roster.SyncCheck()
+	if err != nil {
+		return nil, err
+	}
+	if len(ret) > 0 {
+		return ret[0], nil
+	} else {
+		return nil, nil
+	}
+}
+
 func (pm *PkgManager) Sync() error {
 	return pm.roster.Sync()
 }

@@ -15,6 +15,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"gopkg.in/yaml.v3"
 )
@@ -102,6 +103,64 @@ func (r *Roster) RootMeta() (*RootMeta, error) {
 	return ret, nil
 }
 
+func (r *Roster) SyncCheck() ([]*SyncCheck, error) {
+	ret := []*SyncCheck{}
+	for rosterName, rosterRepoUrl := range ROSTER_REPOS {
+		if sc, err := r.SyncRosterCheck(rosterName, rosterRepoUrl); err != nil {
+			return nil, err
+		} else {
+			ret = append(ret, sc)
+		}
+	}
+	return ret, nil
+}
+
+type SyncCheck struct {
+	RosterName   string
+	NeedSync     bool
+	LocalCommit  plumbing.Hash
+	RemoteCommit plumbing.Hash
+}
+
+func (r *Roster) SyncRosterCheck(rosterName RosterName, rosterRepoUrl string) (*SyncCheck, error) {
+	repo, err := git.PlainOpen(r.MetaDir(rosterName))
+	if err != nil {
+		return nil, err
+	}
+	headRef, err := repo.Head()
+	if err != nil {
+		return nil, err
+	}
+	remote := git.NewRemote(repo.Storer, &config.RemoteConfig{
+		Name: string(git.DefaultRemoteName),
+		URLs: []string{rosterRepoUrl},
+	})
+	remoteRefs, err := remote.List(&git.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	var remoteRef *plumbing.Reference
+	for _, ref := range remoteRefs {
+		refName := ref.Name()
+		if !refName.IsBranch() {
+			continue
+		}
+		if refName.Short() == "main" {
+			remoteRef = ref
+		}
+	}
+	ret := &SyncCheck{
+		RosterName:   string(rosterName),
+		LocalCommit:  headRef.Hash(),
+		RemoteCommit: remoteRef.Hash(),
+	}
+	if headRef.Hash() != remoteRef.Hash() {
+		ret.NeedSync = true
+	}
+	return ret, nil
+}
+
 func (r *Roster) Sync() error {
 	for rosterName, rosterRepoUrl := range ROSTER_REPOS {
 		if err := r.SyncRoster(rosterName, rosterRepoUrl); err != nil {
@@ -152,17 +211,75 @@ func (r *Roster) SyncRoster(rosterName RosterName, rosterRepoUrl string) error {
 	if err != nil && err != git.NoErrAlreadyUpToDate {
 		return fmt.Errorf("pull error: %w", err)
 	}
-	r.WalkPackages(func(name string) bool {
-		meta, err := r.LoadPackageMeta(name)
+	return nil
+}
+
+type Updates struct {
+	Updated    []*Updated
+	Upgradable []*Upgradable
+}
+
+type Updated struct {
+	RosterName    string
+	PkgName       string
+	LatestRelease string
+}
+
+type Upgradable struct {
+	RosterName       string
+	PkgName          string
+	LatestRelease    string
+	InstalledVersion string
+}
+
+func (r *Roster) Update() (*Updates, error) {
+	ret := &Updates{}
+	for rosterName, rosterRepoUrl := range ROSTER_REPOS {
+		chk, err := r.SyncRosterCheck(rosterName, rosterRepoUrl)
 		if err != nil {
-			return true
+			return nil, err
 		}
-		_, err = r.LoadPackageCache(name, meta, true)
-		if err != nil {
-			return true
+		if chk.NeedSync {
+			if err := r.SyncRoster(rosterName, rosterRepoUrl); err != nil {
+				return nil, err
+			}
 		}
-		return true
-	})
+		r.WalkPackages(func(name string) bool {
+			meta, err := r.LoadPackageMeta(name)
+			if err != nil {
+				return true
+			}
+			oldCache, _ := r.LoadPackageCache(name, meta, false)
+			newCache, err := r.LoadPackageCache(name, meta, true)
+			if err == nil {
+				if oldCache == nil || oldCache.LatestReleaseTag != newCache.LatestReleaseTag {
+					ret.Updated = append(ret.Updated, &Updated{
+						RosterName:    string(rosterName),
+						PkgName:       name,
+						LatestRelease: newCache.LatestReleaseTag,
+					})
+				}
+				if oldCache != nil && newCache != nil && oldCache.InstalledVersion != "" && newCache.LatestRelease != oldCache.InstalledVersion {
+					ret.Upgradable = append(ret.Upgradable, &Upgradable{
+						RosterName:       string(rosterName),
+						PkgName:          name,
+						LatestRelease:    newCache.LatestReleaseTag,
+						InstalledVersion: oldCache.InstalledVersion,
+					})
+				}
+			}
+			return true
+		})
+	}
+	return ret, nil
+}
+
+func (r *Roster) Upgrade(pkgs []string) error {
+	for _, name := range pkgs {
+		if err := r.Install(name, os.Stdout); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -246,14 +363,14 @@ func (r *Roster) LoadPackageCache(name string, meta *PackageMeta, forceRefresh b
 		"os":      runtime.GOOS,
 		"arch":    runtime.GOARCH,
 	})
-	ver, err := semver.NewVersion(ghRelease.Name)
-	if err != nil {
+
+	if _, err := semver.NewVersion(ghRelease.Name); err != nil {
 		return nil, err
 	}
 
 	cache.Name = name
 	cache.Github = ghRepo
-	cache.LatestRelease = ver.String()
+	cache.LatestRelease = ghRelease.Name
 	cache.LatestReleaseTag = ghRelease.TagName
 	cache.StripComponents = meta.Distributable.StripComponents
 	cache.PublishedAt = ghRelease.PublishedAt
@@ -289,8 +406,17 @@ func (r *Roster) Install(name string, output io.Writer) error {
 	}
 
 	force := true
-	fileBase := filepath.Base(cache.Url)
-	fileExt := filepath.Ext(fileBase)
+	fileBase := ""
+	fileExt := ""
+	if cache.Url != "" {
+		// from direct url
+		fileBase = filepath.Base(cache.Url)
+		fileExt = filepath.Ext(fileBase)
+	} else {
+		// from s3
+		fileBase = fmt.Sprintf("%s-%s.tar.gz", cache.Github.Repo, cache.LatestRelease)
+		fileExt = ".tar.gz"
+	}
 	thisPkgDir := filepath.Join(r.distDir, cache.Name)
 	archiveFile := filepath.Join(thisPkgDir, fmt.Sprintf("%s%s", cache.LatestRelease, fileExt))
 	unarchiveDir := filepath.Join(thisPkgDir, cache.LatestRelease)
@@ -306,16 +432,31 @@ func (r *Roster) Install(name string, output io.Writer) error {
 		return fmt.Errorf("file %q already exists", archiveFile)
 	}
 
-	srcUrl, err := url.Parse(cache.Url)
-	if err != nil {
-		return err
+	var srcUrl *url.URL
+	if cache.Url != "" {
+		if u, err := url.Parse(cache.Url); err != nil {
+			return err
+		} else {
+			srcUrl = u
+		}
+	} else {
+		bucket := "p-edge-packages"
+		region := "ap-northeast-2"
+		s3url := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/neo-pkg/%s/%s/%s",
+			bucket, region,
+			cache.Github.Organization, cache.Github.Repo, fileBase)
+		if u, err := url.Parse(s3url); err != nil {
+			return err
+		} else {
+			srcUrl = u
+		}
 	}
 
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			Proxy: http.ProxyFromEnvironment,
 		},
-		Timeout: time.Duration(10) * time.Second,
+		// Timeout: time.Duration(10) * time.Second, // download takes longer than 10 seconds
 	}
 
 	rsp, err := httpClient.Do(&http.Request{
@@ -326,16 +467,22 @@ func (r *Roster) Install(name string, output io.Writer) error {
 		return err
 	}
 	defer rsp.Body.Close()
+	if rsp.StatusCode != http.StatusOK {
+		content, _ := io.ReadAll(rsp.Body)
+		return fmt.Errorf("failed to download %q: %s %s", srcUrl, rsp.Status, string(content))
+	}
 
 	download, err := os.OpenFile(archiveFile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
 
-	_ /*written*/, err = io.Copy(download, rsp.Body)
+	nBytes, err := io.Copy(download, rsp.Body)
 	if err != nil {
 		return err
 	}
+	download.Close()
+	fmt.Println("Downloaded", nBytes, "bytes")
 
 	switch fileExt {
 	case ".zip":
@@ -347,7 +494,7 @@ func (r *Roster) Install(name string, output io.Writer) error {
 			return err
 		}
 	case ".tar.gz":
-		cmd := exec.Command("tar", "xf", archiveFile, "--strip-components", fmt.Sprintf("%d", cache.StripComponents))
+		cmd := exec.Command("tar", "xf", archiveFile, "-C", unarchiveDir, "--strip-components", fmt.Sprintf("%d", cache.StripComponents))
 		cmd.Stdout = output
 		cmd.Stderr = output
 		err = cmd.Run()
@@ -396,6 +543,21 @@ func (r *Roster) Uninstall(name string, output io.Writer) error {
 	cache, err := r.LoadPackageCache(name, meta, true)
 	if err != nil {
 		return err
+	}
+
+	if meta.UninstallRecipe != nil {
+		if sc, err := makeScriptFile(meta.UninstallRecipe.Script, cache.InstalledPath, "__uninstall__.sh"); err != nil {
+			return err
+		} else {
+			cmd := exec.Command("sh", "-c", sc)
+			cmd.Dir = cache.InstalledPath
+			cmd.Stdout = output
+			cmd.Stderr = output
+			err = cmd.Run()
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	if !filepath.IsAbs(cache.InstalledPath) || !strings.HasPrefix(cache.InstalledPath, r.distDir) {
