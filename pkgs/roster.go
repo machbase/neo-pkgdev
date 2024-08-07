@@ -215,21 +215,21 @@ func (r *Roster) SyncRoster(rosterName RosterName, rosterRepoUrl string) error {
 }
 
 type Updates struct {
-	Updated    []*Updated
-	Upgradable []*Upgradable
+	Updated    []*Updated    `json:"updated"`
+	Upgradable []*Upgradable `json:"upgradable"`
 }
 
 type Updated struct {
-	RosterName    string
-	PkgName       string
-	LatestRelease string
+	RosterName    string `json:"-"`
+	PkgName       string `json:"pkg_name"`
+	LatestRelease string `json:"latest_release"`
 }
 
 type Upgradable struct {
-	RosterName       string
-	PkgName          string
-	LatestRelease    string
-	InstalledVersion string
+	RosterName       string `json:"-"`
+	PkgName          string `json:"pkg_name"`
+	LatestRelease    string `json:"latest_release"`
+	InstalledVersion string `json:"installed_version"`
 }
 
 func (r *Roster) Update() (*Updates, error) {
