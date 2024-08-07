@@ -134,7 +134,7 @@ func doSearch(cmd *cobra.Command, args []string) error {
 	} else {
 		fmt.Printf("Package %q not found\n", args[0])
 		if len(result.Possibles) > 0 {
-			fmt.Println("\nWhat your are looking for might be:")
+			fmt.Println("\nWhat you are looking for might be:")
 			nameLen := 10
 			addrLen := 10
 			for _, s := range result.Possibles {

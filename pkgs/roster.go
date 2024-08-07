@@ -385,9 +385,8 @@ func (r *Roster) LoadPackageCache(name string, meta *PackageMeta, forceRefresh b
 	current, err := os.Readlink(currentVerDir)
 	if err == nil {
 		linkName := filepath.Base(current)
-		ver, err := semver.NewVersion(linkName)
-		if err == nil {
-			cache.InstalledVersion = ver.String()
+		if _, err := semver.NewVersion(linkName); err == nil {
+			cache.InstalledVersion = linkName
 		}
 	}
 	return cache, r.cacheManagers[ROSTER_CENTRAL].WriteCache(cache)
@@ -408,18 +407,19 @@ func (r *Roster) Install(name string, output io.Writer) error {
 	force := true
 	fileBase := ""
 	fileExt := ""
+	releaseFilename := strings.TrimPrefix(cache.LatestRelease, "v")
 	if cache.Url != "" {
 		// from direct url
 		fileBase = filepath.Base(cache.Url)
 		fileExt = filepath.Ext(fileBase)
 	} else {
 		// from s3
-		fileBase = fmt.Sprintf("%s-%s.tar.gz", cache.Github.Repo, cache.LatestRelease)
+		fileBase = fmt.Sprintf("%s-%s.tar.gz", cache.Github.Repo, releaseFilename)
 		fileExt = ".tar.gz"
 	}
 	thisPkgDir := filepath.Join(r.distDir, cache.Name)
-	archiveFile := filepath.Join(thisPkgDir, fmt.Sprintf("%s%s", cache.LatestRelease, fileExt))
-	unarchiveDir := filepath.Join(thisPkgDir, cache.LatestRelease)
+	archiveFile := filepath.Join(thisPkgDir, fmt.Sprintf("%s%s", releaseFilename, fileExt))
+	unarchiveDir := filepath.Join(thisPkgDir, releaseFilename)
 	currentVerDir := filepath.Join(thisPkgDir, "current")
 
 	if err := os.MkdirAll(unarchiveDir, 0755); err != nil {
@@ -507,7 +507,7 @@ func (r *Roster) Install(name string, output io.Writer) error {
 			return err
 		}
 	}
-	err = os.Symlink(cache.LatestRelease, currentVerDir)
+	err = os.Symlink(releaseFilename, currentVerDir)
 	if err == nil {
 		cache.InstalledVersion = cache.LatestRelease
 		cache.InstalledPath = currentVerDir
@@ -531,6 +531,7 @@ func (r *Roster) Install(name string, output io.Writer) error {
 				return err
 			}
 		}
+		os.Remove(filepath.Join(unarchiveDir, "__install__.sh"))
 	}
 	return nil
 }
@@ -557,6 +558,7 @@ func (r *Roster) Uninstall(name string, output io.Writer) error {
 			if err != nil {
 				return err
 			}
+			os.Remove(filepath.Join(cache.InstalledPath, "__uninstall__.sh"))
 		}
 	}
 
@@ -566,6 +568,7 @@ func (r *Roster) Uninstall(name string, output io.Writer) error {
 	if err := os.RemoveAll(cache.InstalledPath); err != nil {
 		return err
 	}
+	os.RemoveAll(filepath.Dir(cache.InstalledPath))
 	cache.InstalledPath = ""
 	cache.InstalledVersion = ""
 	err = r.cacheManagers[meta.rosterName].WriteCache(cache)
