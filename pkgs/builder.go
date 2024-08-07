@@ -177,7 +177,9 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 		fmt.Println("Debug", args)
 		archiveCmd = exec.Command("powershell", args...)
 	} else {
-		archiveCmd = exec.Command("sh", "-c", strings.Join([]string{"tar", "czf", archivePath, strings.Join(meta.Provides, " ")}, " "))
+		args := strings.Join([]string{"tar", "czf", archivePath, strings.Join(meta.Provides, " ")}, " ")
+		fmt.Println("Debug", args)
+		archiveCmd = exec.Command("sh", "-c", args)
 	}
 	archiveCmd.Dir = dest
 	archiveCmd.Stdout = os.Stdout
