@@ -14,7 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/seqsense/s3sync"
+	"github.com/aws/aws-sdk-go/service/s3"
 )
 
 func Build(pathPackageYml string, dest string, output io.Writer) error {
@@ -197,14 +197,22 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 		if err != nil {
 			return err
 		}
-		syncManager := s3sync.New(sess)
-		err = syncManager.Sync(
-			archivePath,
-			fmt.Sprintf("s3://p-edge-packages/neo-pkg/%s/%s", org, repo),
-		)
+		file, err := os.Open(archivePath)
 		if err != nil {
 			return err
 		}
+		defer file.Close()
+
+		s3obj, err := s3.New(sess).PutObject(&s3.PutObjectInput{
+			Bucket:             aws.String("p-edge-packages"),
+			Key:                aws.String(fmt.Sprintf("neo-pkg/%s/%s/%s", org, repo, filepath.Base(archivePath))),
+			Body:               file,
+			ContentDisposition: aws.String("attachment"),
+		})
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(output, "Deployed %s\n", s3obj.String())
 	} else {
 		fmt.Fprintln(output, "Skip deploy.")
 	}
