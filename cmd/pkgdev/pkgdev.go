@@ -135,10 +135,28 @@ func doSearch(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Package %q not found\n", args[0])
 		if len(result.Possibles) > 0 {
 			fmt.Println("\nWhat your are looking for might be:")
+			nameLen := 10
+			addrLen := 10
 			for _, s := range result.Possibles {
 				if s.Github != nil {
-					fmt.Printf("  %s   https://github.com/%s/%s installed: %s\n",
-						s.Name, s.Github.Organization, s.Github.Name, s.InstalledVersion)
+					if len(s.Name) > nameLen {
+						nameLen = len(s.Name)
+					}
+					if len(s.Github.Organization)+len(s.Github.Name)+len("https://github.com/")+1 > addrLen {
+						addrLen = len(s.Github.Organization) + len(s.Github.Name) + len("https://github.com") + 1
+					}
+				}
+			}
+			for _, s := range result.Possibles {
+				if s.Github != nil {
+					addr := fmt.Sprintf("https://github.com/%s/%s", s.Github.Organization, s.Github.Name)
+					if s.InstalledVersion == "" {
+						fmt.Printf("  %-*s %-*s  -\n",
+							nameLen, s.Name, addrLen, addr)
+					} else {
+						fmt.Printf("  %-*s %-*s   installed: %s\n",
+							nameLen, s.Name, addrLen, addr, s.InstalledVersion)
+					}
 				}
 			}
 		}
