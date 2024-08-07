@@ -199,7 +199,7 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 		if err != nil {
 			return err
 		}
-		file, err := os.Open(archivePath)
+		file, err := os.Open(filepath.Join(dest, archivePath))
 		if err != nil {
 			return err
 		}
