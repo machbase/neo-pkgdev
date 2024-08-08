@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/machbase/neo-pkgdev/pkgs"
 	"github.com/spf13/cobra"
@@ -306,6 +307,13 @@ func doRebuildPlan(cmd *cobra.Command, args []string) error {
 	if err := mgr.Sync(); err != nil {
 		return err
 	}
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+		},
+		Timeout: time.Duration(20) * time.Second,
+	}
+
 	targetPkgs := []string{}
 	mgr.WalkPackages(func(name string) bool {
 		meta, err := mgr.LoadPackageMeta(name)
@@ -318,31 +326,37 @@ func doRebuildPlan(cmd *cobra.Command, args []string) error {
 			return true
 		}
 		dist, _ := cache.RemoteDistribution()
-		rsp, err := http.DefaultClient.Head(dist.Url)
+		rsp, err := httpClient.Head(dist.Url)
 		if err != nil {
 			fmt.Println(cache.Name, cache.LatestRelease, dist.Url, err.Error())
 			return true
 		}
-		fmt.Println(cache.Name, cache.LatestRelease, dist.Url, rsp.StatusCode)
+		rsp.Body.Close()
 		if rsp.StatusCode == 200 {
+			contentLength := ""
+			if cl := rsp.Header.Get("Content-Length"); cl != "" {
+				contentLength = rsp.Header.Get("Content-Length")
+			}
+			fmt.Println(cache.Name, cache.LatestRelease, dist.Url, rsp.StatusCode, contentLength)
 			return true
 		}
+		fmt.Println(cache.Name, cache.LatestRelease, dist.Url, rsp.StatusCode)
 		packageYmlPath := filepath.Join(baseDir, "meta", string(pkgs.ROSTER_CENTRAL), "projects", name, "package.yml")
 		targetPkgs = append(targetPkgs, packageYmlPath)
 		return true
 	})
-	if len(targetPkgs) > 0 {
-		var writer io.Writer
-		if ghOut := os.Getenv("GITHUB_OUTPUT"); ghOut != "" {
-			f, _ := os.OpenFile(ghOut, os.O_CREATE|os.O_WRONLY, 0644)
-			defer f.Close()
-			writer = f
-		} else {
-			writer = os.Stdout
-		}
-		if err := pkgs.Plan(targetPkgs, writer); err != nil {
-			return err
-		}
+	// even there are no packages to rebuild, it will print the plan
+	// so that github action can see the plan is empty
+	var writer io.Writer
+	if ghOut := os.Getenv("GITHUB_OUTPUT"); ghOut != "" {
+		f, _ := os.OpenFile(ghOut, os.O_CREATE|os.O_WRONLY, 0644)
+		defer f.Close()
+		writer = f
+	} else {
+		writer = os.Stdout
+	}
+	if err := pkgs.Plan(targetPkgs, writer); err != nil {
+		return err
 	}
 	return nil
 }

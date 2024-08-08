@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -360,10 +361,12 @@ func (r *Roster) LoadPackageMetaRoster(rosterName RosterName, pkgName string) (*
 func (r *Roster) LoadPackageCache(name string, meta *PackageMeta, forceRefresh bool) (*PackageCache, error) {
 	// if this is the first time to load the package cache,
 	// it will receive the error of "file not found".
-	cache, _ := r.cacheManagers[meta.rosterName].ReadCache(name)
+	oldCache, _ := r.cacheManagers[meta.rosterName].ReadCache(name)
 	if !forceRefresh {
-		return cache, nil
+		return oldCache, nil
 	}
+
+	cache := oldCache
 
 	if cache == nil {
 		cache = &PackageCache{
@@ -395,43 +398,65 @@ func (r *Roster) LoadPackageCache(name string, meta *PackageMeta, forceRefresh b
 		ghRelease = lr
 	}
 
-	tmpl, err := template.New("url").Parse(meta.Distributable.Url)
-	if err != nil {
-		return cache, err
-	}
-	buff := &strings.Builder{}
-	tmpl.Execute(buff, map[string]string{
-		"tag":     ghRelease.TagName,
-		"version": strings.TrimPrefix(ghRelease.TagName, "v"),
-		"os":      runtime.GOOS,
-		"arch":    runtime.GOARCH,
-	})
-
 	if _, err := semver.NewVersion(ghRelease.Name); err != nil {
 		return nil, err
 	}
 
-	cache.Name = name
-	cache.Github = ghRepo
-	cache.LatestRelease = ghRelease.Name
-	cache.LatestReleaseTag = ghRelease.TagName
-	cache.StripComponents = meta.Distributable.StripComponents
-	cache.PublishedAt = ghRelease.PublishedAt
-	cache.Url = buff.String()
-	cache.CachedAt = time.Now()
+	// version check
+	if cache.LatestReleaseTag != ghRelease.TagName {
+		cache.Github = ghRepo
+		cache.LatestRelease = ghRelease.Name
+		cache.LatestReleaseTag = ghRelease.TagName
+		cache.StripComponents = meta.Distributable.StripComponents
+		cache.PublishedAt = ghRelease.PublishedAt
 
-	thisPkgDir := filepath.Join(r.distDir, name)
-	currentVerDir := filepath.Join(thisPkgDir, "current")
-	if _, err := os.Stat(currentVerDir); err == nil {
-		cache.InstalledPath = currentVerDir
-	}
-	current, err := os.Readlink(currentVerDir)
-	if err == nil {
-		linkName := filepath.Base(current)
-		if _, err := semver.NewVersion(linkName); err == nil {
-			cache.InstalledVersion = linkName
+		thisPkgDir := filepath.Join(r.distDir, name)
+		currentVerDir := filepath.Join(thisPkgDir, "current")
+		if _, err := os.Stat(currentVerDir); err == nil {
+			cache.InstalledPath = currentVerDir
+			current, err := os.Readlink(currentVerDir)
+			if err == nil {
+				linkName := filepath.Base(current)
+				cache.InstalledVersion = linkName
+			}
 		}
 	}
+
+	if meta.Distributable.Url != "" {
+		tmpl, err := template.New("url").Parse(meta.Distributable.Url)
+		if err != nil {
+			return cache, err
+		}
+		buff := &strings.Builder{}
+		tmpl.Execute(buff, map[string]string{
+			"tag":     ghRelease.TagName,
+			"version": strings.TrimPrefix(ghRelease.TagName, "v"),
+			"os":      runtime.GOOS,
+			"arch":    runtime.GOARCH,
+		})
+		cache.Url = buff.String()
+	}
+
+	newDist, _ := cache.RemoteDistribution()
+	if newDist != nil {
+		rsp, err := httpClient.Head(newDist.Url)
+		if err != nil {
+			return oldCache, nil
+		}
+		rsp.Body.Close()
+		// built package is not uploaded yet
+		if rsp.StatusCode != http.StatusOK {
+			return oldCache, nil
+		}
+		contentLength := rsp.Header.Get("Content-Length")
+		if contentLength != "" {
+			if ln, err := strconv.ParseInt(contentLength, 10, 64); err == nil {
+				cache.LatestReleaseSize = ln
+			}
+		}
+	}
+
+	cache.CachedAt = time.Now()
 	return cache, r.cacheManagers[ROSTER_CENTRAL].WriteCache(cache)
 }
 
