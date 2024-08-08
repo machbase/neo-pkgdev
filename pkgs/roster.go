@@ -269,7 +269,6 @@ func (r *Roster) Update() (*Updates, error) {
 			if newCache != nil {
 				newRelease = strings.TrimPrefix(newCache.LatestRelease, "v")
 			}
-			fmt.Println("--------> old release:", oldCache, "new release:", newCache)
 
 			if err == nil {
 				if oldCache == nil || oldCache.LatestReleaseTag != newCache.LatestReleaseTag {
