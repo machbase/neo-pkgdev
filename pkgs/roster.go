@@ -279,16 +279,19 @@ type Installed struct {
 	Success bool          `json:"success"`
 	Err     error         `json:"error,omitempty"`
 	Cache   *PackageCache `json:"installed,omitempty"`
+	Output  string        `json:"output,omitempty"`
 }
 
 func (r *Roster) Upgrade(pkgs []string) []*Installed {
 	ret := make([]*Installed, len(pkgs))
 	for i, name := range pkgs {
-		if err := r.Install(name, os.Stdout); err != nil {
+		output := &strings.Builder{}
+		if err := r.Install(name, output); err != nil {
 			ret[i] = &Installed{
 				PkgName: name,
 				Success: false,
 				Err:     err,
+				Output:  output.String(),
 			}
 		} else {
 			meta, _ := r.LoadPackageMeta(name)
@@ -297,6 +300,7 @@ func (r *Roster) Upgrade(pkgs []string) []*Installed {
 				PkgName: name,
 				Success: true,
 				Cache:   cache,
+				Output:  output.String(),
 			}
 		}
 	}
