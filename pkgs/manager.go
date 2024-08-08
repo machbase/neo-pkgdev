@@ -26,8 +26,8 @@ func (pm *PkgManager) Update() (*Updates, error) {
 	return pm.roster.Update()
 }
 
-func (pm *PkgManager) Upgrade(pkgs []string) []*Installed {
-	return pm.roster.Upgrade(pkgs)
+func (pm *PkgManager) Upgrade(pkgs []string, env []string) []*Installed {
+	return pm.roster.Upgrade(pkgs, env)
 }
 
 func (pm *PkgManager) SyncCheck() (*SyncCheck, error) {
@@ -75,8 +75,8 @@ func (pm *PkgManager) Search(name string, possible int) (*PackageSearchResult, e
 	}
 }
 
-func (pm *PkgManager) Install(name string, output io.Writer) (*PackageCache, error) {
-	err := pm.roster.Install(name, output)
+func (pm *PkgManager) Install(name string, output io.Writer, env []string) (*PackageCache, error) {
+	err := pm.roster.Install(name, output, env)
 	if err != nil {
 		return nil, err
 	}
@@ -89,8 +89,8 @@ func (pm *PkgManager) Install(name string, output io.Writer) (*PackageCache, err
 	return cache, nil
 }
 
-func (pm *PkgManager) Uninstall(name string, output io.Writer) (*PackageCache, error) {
-	err := pm.roster.Uninstall(name, output)
+func (pm *PkgManager) Uninstall(name string, output io.Writer, env []string) (*PackageCache, error) {
+	err := pm.roster.Uninstall(name, output, env)
 	if err != nil {
 		return nil, err
 	}

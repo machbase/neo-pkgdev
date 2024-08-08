@@ -252,7 +252,7 @@ func doUpgrade(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	results := mgr.Upgrade(args)
+	results := mgr.Upgrade(args, nil)
 	for _, r := range results {
 		fmt.Println(r.PkgName, "upgraded", r.Cache.InstalledVersion, r.Cache.InstalledPath)
 	}
@@ -268,7 +268,7 @@ func doInstall(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	cache, err := mgr.Install(args[0], os.Stdout)
+	cache, err := mgr.Install(args[0], os.Stdout, nil)
 	if err != nil {
 		return err
 	}
@@ -286,7 +286,7 @@ func doUninstall(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	_, err = mgr.Uninstall(args[0], os.Stdout)
+	_, err = mgr.Uninstall(args[0], os.Stdout, nil)
 	if err != nil {
 		return err
 	}

@@ -292,11 +292,11 @@ type Installed struct {
 	Output  string        `json:"output,omitempty"`
 }
 
-func (r *Roster) Upgrade(pkgs []string) []*Installed {
+func (r *Roster) Upgrade(pkgs []string, env []string) []*Installed {
 	ret := make([]*Installed, len(pkgs))
 	for i, name := range pkgs {
 		output := &strings.Builder{}
-		if err := r.Install(name, output); err != nil {
+		if err := r.Install(name, output, env); err != nil {
 			ret[i] = &Installed{
 				PkgName: name,
 				Success: false,
@@ -428,7 +428,7 @@ func (r *Roster) LoadPackageCache(name string, meta *PackageMeta, forceRefresh b
 
 // Install installs the package to the distDir
 // returns the installed symlink path '~/dist/<name>/current'
-func (r *Roster) Install(name string, output io.Writer) error {
+func (r *Roster) Install(name string, output io.Writer, env []string) error {
 	meta, err := r.LoadPackageMeta(name)
 	if err != nil {
 		return err
@@ -544,6 +544,7 @@ func (r *Roster) Install(name string, output io.Writer) error {
 			cmd.Dir = currentVerDir
 			cmd.Stdout = output
 			cmd.Stderr = output
+			cmd.Env = append(os.Environ(), env...)
 			err = cmd.Run()
 			if err != nil {
 				return err
@@ -554,7 +555,7 @@ func (r *Roster) Install(name string, output io.Writer) error {
 	return nil
 }
 
-func (r *Roster) Uninstall(name string, output io.Writer) error {
+func (r *Roster) Uninstall(name string, output io.Writer, env []string) error {
 	meta, err := r.LoadPackageMeta(name)
 	if err != nil {
 		return err
@@ -572,6 +573,7 @@ func (r *Roster) Uninstall(name string, output io.Writer) error {
 			cmd.Dir = cache.InstalledPath
 			cmd.Stdout = output
 			cmd.Stderr = output
+			cmd.Env = append(os.Environ(), env...)
 			err = cmd.Run()
 			if err != nil {
 				return err
