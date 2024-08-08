@@ -274,13 +274,33 @@ func (r *Roster) Update() (*Updates, error) {
 	return ret, nil
 }
 
-func (r *Roster) Upgrade(pkgs []string) error {
-	for _, name := range pkgs {
+type Installed struct {
+	PkgName string        `json:"pkg_name"`
+	Success bool          `json:"success"`
+	Err     error         `json:"error,omitempty"`
+	Cache   *PackageCache `json:"installed,omitempty"`
+}
+
+func (r *Roster) Upgrade(pkgs []string) []*Installed {
+	ret := make([]*Installed, len(pkgs))
+	for i, name := range pkgs {
 		if err := r.Install(name, os.Stdout); err != nil {
-			return err
+			ret[i] = &Installed{
+				PkgName: name,
+				Success: false,
+				Err:     err,
+			}
+		} else {
+			meta, _ := r.LoadPackageMeta(name)
+			cache, _ := r.LoadPackageCache(name, meta, false)
+			ret[i] = &Installed{
+				PkgName: name,
+				Success: true,
+				Cache:   cache,
+			}
 		}
 	}
-	return nil
+	return ret
 }
 
 func (r *Roster) InstallDir(name string) string {

@@ -242,7 +242,10 @@ func doUpgrade(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	mgr.Upgrade(args)
+	results := mgr.Upgrade(args)
+	for _, r := range results {
+		fmt.Println(r.PkgName, "upgraded", r.Cache.InstalledVersion, r.Cache.InstalledPath)
+	}
 	return nil
 }
 

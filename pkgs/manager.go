@@ -26,7 +26,7 @@ func (pm *PkgManager) Update() (*Updates, error) {
 	return pm.roster.Update()
 }
 
-func (pm *PkgManager) Upgrade(pkgs []string) error {
+func (pm *PkgManager) Upgrade(pkgs []string) []*Installed {
 	return pm.roster.Upgrade(pkgs)
 }
 
