@@ -260,6 +260,15 @@ func (r *Roster) Update() (*Updates, error) {
 			}
 			oldCache, _ := r.LoadPackageCache(name, meta, false)
 			newCache, err := r.LoadPackageCache(name, meta, true)
+
+			installedRelease := ""
+			newRelease := ""
+			if oldCache != nil && oldCache.InstalledVersion != "" {
+				installedRelease = strings.TrimPrefix(oldCache.InstalledVersion, "v")
+			}
+			if newCache != nil {
+				newRelease = strings.TrimPrefix(newCache.LatestRelease, "v")
+			}
 			if err == nil {
 				if oldCache == nil || oldCache.LatestReleaseTag != newCache.LatestReleaseTag {
 					ret.Updated = append(ret.Updated, &Updated{
@@ -269,7 +278,7 @@ func (r *Roster) Update() (*Updates, error) {
 						Cache:         newCache,
 					})
 				}
-				if oldCache != nil && newCache != nil && oldCache.InstalledVersion != "" && newCache.LatestRelease != oldCache.InstalledVersion {
+				if oldCache != nil && newCache != nil && installedRelease != "" && newRelease != installedRelease {
 					ret.Upgradable = append(ret.Upgradable, &Upgradable{
 						RosterName:       string(rosterName),
 						PkgName:          name,
