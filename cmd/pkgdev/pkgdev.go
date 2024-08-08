@@ -3,6 +3,7 @@ package pkgdev
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -101,6 +102,14 @@ func NewCmd() *cobra.Command {
 	buildCmd.Args = cobra.ExactArgs(1)
 	buildCmd.PersistentFlags().String("install", "", "`<Dir>` path to install the package")
 
+	rebuildCmd := &cobra.Command{
+		Use:   "rebuild [flags]",
+		Short: "Rebuild packages",
+		RunE:  doRebuildPlan,
+	}
+	rebuildCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
+	rebuildCmd.MarkPersistentFlagRequired("dir")
+
 	rootCmd.AddCommand(
 		updateCmd,
 		upgradeCmd,
@@ -111,6 +120,7 @@ func NewCmd() *cobra.Command {
 		auditCmd,
 		planCmd,
 		buildCmd,
+		rebuildCmd,
 	)
 	return rootCmd
 }
@@ -282,6 +292,59 @@ func doUninstall(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Println("Uninstalled", args[0])
 	return err
+}
+
+func doRebuildPlan(cmd *cobra.Command, args []string) error {
+	baseDir, err := cmd.Flags().GetString("dir")
+	if err != nil {
+		return err
+	}
+	mgr, err := pkgs.NewPkgManager(baseDir)
+	if err != nil {
+		return err
+	}
+	if err := mgr.Sync(); err != nil {
+		return err
+	}
+	targetPkgs := []string{}
+	mgr.WalkPackages(func(name string) bool {
+		meta, err := mgr.LoadPackageMeta(name)
+		if err != nil {
+			return true
+		}
+		cache, _ := mgr.LoadPackageCache(name, meta, true)
+		if cache == nil {
+			fmt.Println(name, "cache not found")
+			return true
+		}
+		dist, _ := cache.RemoteDistribution()
+		rsp, err := http.DefaultClient.Head(dist.Url)
+		if err != nil {
+			fmt.Println(cache.Name, cache.LatestRelease, dist.Url, err.Error())
+			return true
+		}
+		fmt.Println(cache.Name, cache.LatestRelease, dist.Url, rsp.StatusCode)
+		if rsp.StatusCode == 200 {
+			return true
+		}
+		packageYmlPath := filepath.Join(baseDir, "meta", string(pkgs.ROSTER_CENTRAL), "projects", name, "package.yml")
+		targetPkgs = append(targetPkgs, packageYmlPath)
+		return true
+	})
+	if len(targetPkgs) > 0 {
+		var writer io.Writer
+		if ghOut := os.Getenv("GITHUB_OUTPUT"); ghOut != "" {
+			f, _ := os.OpenFile(ghOut, os.O_CREATE|os.O_WRONLY, 0644)
+			defer f.Close()
+			writer = f
+		} else {
+			writer = os.Stdout
+		}
+		if err := pkgs.Plan(targetPkgs, writer); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func doPlan(cmd *cobra.Command, args []string) error {

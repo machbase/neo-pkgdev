@@ -101,3 +101,15 @@ func (pm *PkgManager) Uninstall(name string, output io.Writer) (*PackageCache, e
 	pm.log.Info("uninstalled", name)
 	return cache, nil
 }
+
+func (pm *PkgManager) WalkPackages(cb func(name string) bool) {
+	pm.roster.WalkPackages(cb)
+}
+
+func (pm *PkgManager) LoadPackageMeta(name string) (*PackageMeta, error) {
+	return pm.roster.LoadPackageMeta(name)
+}
+
+func (pm *PkgManager) LoadPackageCache(name string, meta *PackageMeta, forceRefresh bool) (*PackageCache, error) {
+	return pm.roster.LoadPackageCache(name, meta, forceRefresh)
+}

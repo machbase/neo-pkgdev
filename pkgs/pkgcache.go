@@ -1,8 +1,10 @@
 package pkgs
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -19,6 +21,39 @@ type PackageCache struct {
 	CachedAt         time.Time   `yaml:"cached_at" json:"cached_at"`
 	InstalledVersion string      `yaml:"installed_version" json:"installed_version"`
 	InstalledPath    string      `yaml:"installed_path" json:"installed_path"`
+}
+
+type PackageDistribution struct {
+	Url             string `json:"url"`
+	ArchiveBase     string `json:"archive_base"`
+	ArchiveExt      string `json:"archive_ext"`
+	UnarchiveDir    string `json:"unarchive_base"`
+	StripComponents int    `json:"strip_components"`
+}
+
+func (cache *PackageCache) RemoteDistribution() (*PackageDistribution, error) {
+	ret := &PackageDistribution{StripComponents: cache.StripComponents}
+	if cache.Url != "" {
+		// from direct url
+		ret.Url = cache.Url
+		ret.ArchiveBase = filepath.Base(cache.Url)
+		ret.ArchiveExt = filepath.Ext(ret.ArchiveBase)
+		ret.UnarchiveDir = strings.TrimSuffix(ret.ArchiveBase, ret.ArchiveExt)
+	} else {
+		// from s3
+		releaseFilename := strings.TrimPrefix(cache.LatestRelease, "v")
+		ret.ArchiveBase = fmt.Sprintf("%s-%s.tar.gz", cache.Github.Repo, releaseFilename)
+		ret.ArchiveExt = ".tar.gz"
+		ret.UnarchiveDir = releaseFilename
+
+		bucket := "p-edge-packages"
+		region := "ap-northeast-2"
+		ret.Url = fmt.Sprintf("https://%s.s3.%s.amazonaws.com/neo-pkg/%s/%s/%s",
+			bucket, region,
+			cache.Github.Organization, cache.Github.Repo, ret.ArchiveBase)
+
+	}
+	return ret, nil
 }
 
 type CacheManager struct {

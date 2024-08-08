@@ -123,8 +123,16 @@ type SyncCheck struct {
 }
 
 func (r *Roster) SyncRosterCheck(rosterName RosterName, rosterRepoUrl string) (*SyncCheck, error) {
-	repo, err := git.PlainOpen(r.MetaDir(rosterName))
+	repoPath := r.MetaDir(rosterName)
+	if _, err := os.Stat(repoPath); err != nil {
+		return &SyncCheck{
+			RosterName: string(rosterName),
+			NeedSync:   true,
+		}, nil
+	}
+	repo, err := git.PlainOpen(repoPath)
 	if err != nil {
+		fmt.Printf("PlainOpen %T error:%s\n", err, err)
 		return nil, err
 	}
 	headRef, err := repo.Head()
@@ -220,9 +228,10 @@ type Updates struct {
 }
 
 type Updated struct {
-	RosterName    string `json:"-"`
-	PkgName       string `json:"pkg_name"`
-	LatestRelease string `json:"latest_release"`
+	RosterName    string        `json:"-"`
+	PkgName       string        `json:"pkg_name"`
+	LatestRelease string        `json:"latest_release"`
+	Cache         *PackageCache `json:"-"`
 }
 
 type Upgradable struct {
@@ -257,6 +266,7 @@ func (r *Roster) Update() (*Updates, error) {
 						RosterName:    string(rosterName),
 						PkgName:       name,
 						LatestRelease: newCache.LatestReleaseTag,
+						Cache:         newCache,
 					})
 				}
 				if oldCache != nil && newCache != nil && oldCache.InstalledVersion != "" && newCache.LatestRelease != oldCache.InstalledVersion {
@@ -429,21 +439,10 @@ func (r *Roster) Install(name string, output io.Writer) error {
 	}
 
 	force := true
-	fileBase := ""
-	fileExt := ""
-	releaseFilename := strings.TrimPrefix(cache.LatestRelease, "v")
-	if cache.Url != "" {
-		// from direct url
-		fileBase = filepath.Base(cache.Url)
-		fileExt = filepath.Ext(fileBase)
-	} else {
-		// from s3
-		fileBase = fmt.Sprintf("%s-%s.tar.gz", cache.Github.Repo, releaseFilename)
-		fileExt = ".tar.gz"
-	}
+	dist, _ := cache.RemoteDistribution()
 	thisPkgDir := filepath.Join(r.distDir, cache.Name)
-	archiveFile := filepath.Join(thisPkgDir, fmt.Sprintf("%s%s", releaseFilename, fileExt))
-	unarchiveDir := filepath.Join(thisPkgDir, releaseFilename)
+	archiveFile := filepath.Join(thisPkgDir, dist.ArchiveBase)
+	unarchiveDir := filepath.Join(thisPkgDir, dist.UnarchiveDir)
 	currentVerDir := filepath.Join(thisPkgDir, "current")
 
 	if err := os.MkdirAll(unarchiveDir, 0755); err != nil {
@@ -464,12 +463,7 @@ func (r *Roster) Install(name string, output io.Writer) error {
 			srcUrl = u
 		}
 	} else {
-		bucket := "p-edge-packages"
-		region := "ap-northeast-2"
-		s3url := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/neo-pkg/%s/%s/%s",
-			bucket, region,
-			cache.Github.Organization, cache.Github.Repo, fileBase)
-		if u, err := url.Parse(s3url); err != nil {
+		if u, err := url.Parse(dist.Url); err != nil {
 			return err
 		} else {
 			srcUrl = u
@@ -508,7 +502,7 @@ func (r *Roster) Install(name string, output io.Writer) error {
 	download.Close()
 	fmt.Println("Downloaded", nBytes, "bytes")
 
-	switch fileExt {
+	switch dist.ArchiveExt {
 	case ".zip":
 		cmd := exec.Command("unzip", "-o", "-d", unarchiveDir, archiveFile)
 		cmd.Stdout = output
@@ -518,7 +512,7 @@ func (r *Roster) Install(name string, output io.Writer) error {
 			return err
 		}
 	case ".tar.gz":
-		cmd := exec.Command("tar", "xf", archiveFile, "-C", unarchiveDir, "--strip-components", fmt.Sprintf("%d", cache.StripComponents))
+		cmd := exec.Command("tar", "xf", archiveFile, "-C", unarchiveDir, "--strip-components", fmt.Sprintf("%d", dist.StripComponents))
 		cmd.Stdout = output
 		cmd.Stderr = output
 		err = cmd.Run()
@@ -531,7 +525,7 @@ func (r *Roster) Install(name string, output io.Writer) error {
 			return err
 		}
 	}
-	err = os.Symlink(releaseFilename, currentVerDir)
+	err = os.Symlink(unarchiveDir, currentVerDir)
 	if err == nil {
 		cache.InstalledVersion = cache.LatestRelease
 		cache.InstalledPath = currentVerDir
