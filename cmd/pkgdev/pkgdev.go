@@ -346,7 +346,7 @@ func doRebuildPlan(cmd *cobra.Command, args []string) error {
 		return true
 	})
 	// even there are no packages to rebuild, it will print the plan
-	// so that github action can see the plan is empty
+	// so that github action will not raise error
 	var writer io.Writer
 	if ghOut := os.Getenv("GITHUB_OUTPUT"); ghOut != "" {
 		f, _ := os.OpenFile(ghOut, os.O_CREATE|os.O_WRONLY, 0644)
@@ -355,6 +355,9 @@ func doRebuildPlan(cmd *cobra.Command, args []string) error {
 	} else {
 		writer = os.Stdout
 	}
+	// if targetPkgs is empty, it will intentionally pass the default example package
+	// so that github action can see the plan is not empty, otherwise it will raise error
+	targetPkgs = []string{"neo-pkg-web-example"}
 	if err := pkgs.Plan(targetPkgs, writer); err != nil {
 		return err
 	}
