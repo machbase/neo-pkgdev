@@ -102,13 +102,13 @@ func NewCmd() *cobra.Command {
 	buildCmd.Args = cobra.ExactArgs(1)
 	buildCmd.PersistentFlags().String("install", "", "`<Dir>` path to install the package")
 
-	rebuildCmd := &cobra.Command{
-		Use:   "rebuild [flags]",
-		Short: "Rebuild packages",
+	rebuildPlanCmd := &cobra.Command{
+		Use:   "rebuild-plan [flags]",
+		Short: "Rebuild planning to build packages",
 		RunE:  doRebuildPlan,
 	}
-	rebuildCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
-	rebuildCmd.MarkPersistentFlagRequired("dir")
+	rebuildPlanCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
+	rebuildPlanCmd.MarkPersistentFlagRequired("dir")
 
 	rootCmd.AddCommand(
 		updateCmd,
@@ -120,7 +120,7 @@ func NewCmd() *cobra.Command {
 		auditCmd,
 		planCmd,
 		buildCmd,
-		rebuildCmd,
+		rebuildPlanCmd,
 	)
 	return rootCmd
 }
