@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -270,6 +269,8 @@ func (r *Roster) Update() (*Updates, error) {
 			if newCache != nil {
 				newRelease = strings.TrimPrefix(newCache.LatestRelease, "v")
 			}
+			fmt.Println("--------> old release:", oldCache, "new release:", newCache)
+
 			if err == nil {
 				if oldCache == nil || oldCache.LatestReleaseTag != newCache.LatestReleaseTag {
 					ret.Updated = append(ret.Updated, &Updated{
@@ -339,6 +340,23 @@ func (r *Roster) LoadPackageMeta(pkgName string) (*PackageMeta, error) {
 	return r.LoadPackageMetaRoster(ROSTER_CENTRAL, pkgName)
 }
 
+// return the installed version and the installed path
+func (r *Roster) getInstalledVersion(name string) (string, string) {
+	thisPkgDir := filepath.Join(r.distDir, name)
+	currentVerDir := filepath.Join(thisPkgDir, "current")
+	installedPath := ""
+	installedVer := ""
+	if _, err := os.Stat(currentVerDir); err == nil {
+		installedPath = currentVerDir
+		current, err := os.Readlink(currentVerDir)
+		if err == nil {
+			linkName := filepath.Base(current)
+			installedVer = linkName
+		}
+	}
+	return installedVer, installedPath
+}
+
 // LoadPackageMetaRoster loads package.yml file from the given package name.
 // if the package.yml file is not found, it will return nil, and nil error.
 // if the package.yml file is found, it will return the package meta info and nil error
@@ -363,6 +381,9 @@ func (r *Roster) LoadPackageCache(name string, meta *PackageMeta, forceRefresh b
 	// it will receive the error of "file not found".
 	oldCache, _ := r.cacheManagers[meta.rosterName].ReadCache(name)
 	if !forceRefresh {
+		if oldCache != nil {
+			oldCache.InstalledVersion, oldCache.InstalledPath = r.getInstalledVersion(name)
+		}
 		return oldCache, nil
 	}
 
@@ -435,25 +456,6 @@ func (r *Roster) LoadPackageCache(name string, meta *PackageMeta, forceRefresh b
 			"arch":    runtime.GOARCH,
 		})
 		cache.Url = buff.String()
-	}
-
-	newDist, _ := cache.RemoteDistribution()
-	if newDist != nil {
-		rsp, err := httpClient.Head(newDist.Url)
-		if err != nil {
-			return oldCache, nil
-		}
-		rsp.Body.Close()
-		// built package is not uploaded yet
-		if rsp.StatusCode != http.StatusOK {
-			return oldCache, nil
-		}
-		contentLength := rsp.Header.Get("Content-Length")
-		if contentLength != "" {
-			if ln, err := strconv.ParseInt(contentLength, 10, 64); err == nil {
-				cache.LatestReleaseSize = ln
-			}
-		}
 	}
 
 	cache.CachedAt = time.Now()

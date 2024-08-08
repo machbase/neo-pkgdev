@@ -227,7 +227,7 @@ func doUpdate(cmd *cobra.Command, args []string) error {
 		fmt.Println("Updated packages:")
 		if len(upd.Updated) > 0 {
 			for _, p := range upd.Updated {
-				fmt.Println("  ", p.PkgName, "updated", p.LatestRelease)
+				fmt.Println("  ", p.PkgName, "updated", strings.TrimPrefix(p.LatestRelease, "v"))
 			}
 		} else {
 			fmt.Println("   no updated packages")
@@ -235,7 +235,27 @@ func doUpdate(cmd *cobra.Command, args []string) error {
 		fmt.Println("Upgradable packages:")
 		if len(upd.Upgradable) > 0 {
 			for _, p := range upd.Upgradable {
-				fmt.Println("  ", p.PkgName, p.InstalledVersion, "-->", p.LatestRelease, "available")
+				fmt.Println("  ", p.PkgName, p.InstalledVersion, "-->", strings.TrimPrefix(p.LatestRelease, "v"), "available")
+
+				// newDist, _ := cache.RemoteDistribution()
+				// if newDist != nil && oldCache != nil {
+				// 	rsp, err := httpClient.Head(newDist.Url)
+				// 	if err != nil {
+				// 		return oldCache, nil
+				// 	}
+				// 	rsp.Body.Close()
+				// 	// built package is not uploaded yet
+				// 	if rsp.StatusCode != http.StatusOK {
+				// 		return oldCache, nil
+				// 	}
+				// 	contentLength := rsp.Header.Get("Content-Length")
+				// 	if contentLength != "" {
+				// 		if ln, err := strconv.ParseInt(contentLength, 10, 64); err == nil {
+				// 			cache.LatestReleaseSize = ln
+				// 		}
+				// 	}
+				// }
+
 			}
 		} else {
 			fmt.Println("   no upgradable packages")
@@ -357,7 +377,11 @@ func doRebuildPlan(cmd *cobra.Command, args []string) error {
 	}
 	// if targetPkgs is empty, it will intentionally pass the default example package
 	// so that github action can see the plan is not empty, otherwise it will raise error
-	targetPkgs = []string{"neo-pkg-web-example"}
+	if len(targetPkgs) == 0 {
+		targetPkgs = []string{
+			filepath.Join(baseDir, "meta", string(pkgs.ROSTER_CENTRAL), "projects", "neo-pkg-web-example", "package.yml"),
+		}
+	}
 	if err := pkgs.Plan(targetPkgs, writer); err != nil {
 		return err
 	}
