@@ -264,10 +264,10 @@ func (r *Roster) Update() (*Updates, error) {
 			installedRelease := ""
 			newRelease := ""
 			if oldCache != nil && oldCache.InstalledVersion != "" {
-				installedRelease = strings.TrimPrefix(oldCache.InstalledVersion, "v")
+				installedRelease = oldCache.InstalledVersion
 			}
 			if newCache != nil {
-				newRelease = strings.TrimPrefix(newCache.LatestRelease, "v")
+				newRelease = newCache.LatestVersion
 			}
 
 			if err == nil {
@@ -425,6 +425,7 @@ func (r *Roster) LoadPackageCache(name string, meta *PackageMeta, forceRefresh b
 	// version check
 	if cache.LatestReleaseTag != ghRelease.TagName {
 		cache.Github = ghRepo
+		cache.LatestVersion = strings.TrimPrefix(strings.TrimPrefix(ghRelease.TagName, "v"), "V")
 		cache.LatestRelease = ghRelease.Name
 		cache.LatestReleaseTag = ghRelease.TagName
 		cache.StripComponents = meta.Distributable.StripComponents
@@ -562,7 +563,7 @@ func (r *Roster) Install(name string, output io.Writer, env []string) error {
 	}
 	err = os.Symlink(unarchiveDir, currentVerDir)
 	if err == nil {
-		cache.InstalledVersion = cache.LatestRelease
+		cache.InstalledVersion = cache.LatestVersion
 		cache.InstalledPath = currentVerDir
 		cache.CachedAt = time.Now()
 		err = r.cacheManagers[meta.rosterName].WriteCache(cache)

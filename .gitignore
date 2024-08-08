@@ -29,3 +29,4 @@ native/**/*_dummy.o
 
 # mage temp file
 mage_output_file.go
+neo-pkgdev

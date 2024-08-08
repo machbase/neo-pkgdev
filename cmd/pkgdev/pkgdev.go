@@ -227,7 +227,7 @@ func doUpdate(cmd *cobra.Command, args []string) error {
 		fmt.Println("Updated packages:")
 		if len(upd.Updated) > 0 {
 			for _, p := range upd.Updated {
-				fmt.Println("  ", p.PkgName, "updated", strings.TrimPrefix(p.LatestRelease, "v"))
+				fmt.Println("  ", p.PkgName, "   ", strings.TrimPrefix(p.LatestRelease, "v"))
 			}
 		} else {
 			fmt.Println("   no updated packages")
@@ -348,7 +348,7 @@ func doRebuildPlan(cmd *cobra.Command, args []string) error {
 		dist, _ := cache.RemoteDistribution()
 		rsp, err := httpClient.Head(dist.Url)
 		if err != nil {
-			fmt.Println(cache.Name, cache.LatestRelease, dist.Url, err.Error())
+			fmt.Println(cache.Name, cache.LatestVersion, dist.Url, err.Error())
 			return true
 		}
 		rsp.Body.Close()
@@ -357,10 +357,10 @@ func doRebuildPlan(cmd *cobra.Command, args []string) error {
 			if cl := rsp.Header.Get("Content-Length"); cl != "" {
 				contentLength = rsp.Header.Get("Content-Length")
 			}
-			fmt.Println(cache.Name, cache.LatestRelease, dist.Url, rsp.StatusCode, contentLength)
+			fmt.Println(cache.Name, cache.LatestVersion, dist.Url, rsp.StatusCode, contentLength)
 			return true
 		}
-		fmt.Println(cache.Name, cache.LatestRelease, dist.Url, rsp.StatusCode)
+		fmt.Println(cache.Name, cache.LatestVersion, dist.Url, rsp.StatusCode)
 		packageYmlPath := filepath.Join(baseDir, "meta", string(pkgs.ROSTER_CENTRAL), "projects", name, "package.yml")
 		targetPkgs = append(targetPkgs, packageYmlPath)
 		return true
@@ -450,7 +450,12 @@ func doBuild(cmd *cobra.Command, args []string) error {
 
 func print(nr *pkgs.PackageCache) {
 	fmt.Println("Package             ", nr.Name)
-	fmt.Println("Github              ", nr.Github)
+	if nr.Github != nil {
+		fmt.Println("Organization        ", nr.Github.Organization)
+		fmt.Println("Repository          ", nr.Github.Name)
+		fmt.Println("Description         ", nr.Github.Description)
+	}
+	fmt.Println("Latest Version      ", nr.LatestVersion)
 	fmt.Println("Latest Release      ", nr.LatestRelease)
 	fmt.Println("Latest Release Tag  ", nr.LatestReleaseTag)
 	fmt.Println("Published At        ", nr.PublishedAt)

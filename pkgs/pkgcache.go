@@ -13,6 +13,7 @@ import (
 type PackageCache struct {
 	Name              string      `yaml:"name" json:"name"`
 	Github            *GhRepoInfo `yaml:"github" json:"github"`
+	LatestVersion     string      `yaml:"latest_version" json:"latest_version"`
 	LatestRelease     string      `yaml:"latest_release" json:"latest_release"`
 	LatestReleaseTag  string      `yaml:"latest_release_tag" json:"latest_release_tag"`
 	LatestReleaseSize int64       `yaml:"latest_release_size" json:"latest_release_size"`
@@ -44,7 +45,7 @@ func (cache *PackageCache) RemoteDistribution() (*PackageDistribution, error) {
 		ret.ArchiveSize = cache.LatestReleaseSize
 	} else {
 		// from s3
-		releaseFilename := strings.TrimPrefix(cache.LatestRelease, "v")
+		releaseFilename := cache.LatestVersion
 		ret.ArchiveBase = fmt.Sprintf("%s-%s.tar.gz", cache.Github.Repo, releaseFilename)
 		ret.ArchiveExt = ".tar.gz"
 		ret.UnarchiveDir = releaseFilename
