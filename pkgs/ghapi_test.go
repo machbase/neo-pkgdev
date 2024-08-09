@@ -26,16 +26,37 @@ func ExampleGithubRepoInfo() {
 	fmt.Println(sb.String())
 
 	// Output:
-	//{
+	// {
 	//   "organization": "machbase",
 	//   "repo": "neo-pkg-web-example",
 	//   "name": "neo-pkg-web-example",
 	//   "full_name": "machbase/neo-pkg-web-example",
-	//   "description": "",
+	//   "owner": {
+	//     "login": "machbase",
+	//     "id": 30223383,
+	//     "node_id": "MDEyOk9yZ2FuaXphdGlvbjMwMjIzMzgz",
+	//     "avatar_url": "https://avatars.githubusercontent.com/u/30223383?v=4",
+	//     "gravatar_id": "",
+	//     "url": "https://api.github.com/users/machbase",
+	//     "html_url": "https://github.com/machbase",
+	//     "subscriptions_url": "https://api.github.com/users/machbase/subscriptions",
+	//     "organizations_url": "https://api.github.com/users/machbase/orgs",
+	//     "type": "Organization",
+	//     "site_admin": false
+	//   },
+	//   "private": false,
+	//   "description": "neo package web application example",
 	//   "homepage": "",
-	//   "language": "JavaScript",
-	//   "license": "",
+	//   "forks_count": 0,
+	//   "forks": 0,
+	//   "language": "TypeScript",
+	//   "license": {
+	//     "key": "apache-2.0",
+	//     "name": "Apache License 2.0",
+	//     "spdx_id": "Apache-2.0",
+	//     "url": "https://api.github.com/licenses/apache-2.0",
+	//     "node_id": "MDc6TGljZW5zZTI="
+	//   },
 	//   "default_branch": "main"
-	//}
-	//
+	// }
 }

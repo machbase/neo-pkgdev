@@ -144,20 +144,20 @@ func doSearch(cmd *cobra.Command, args []string) error {
 					if len(s.Name) > nameLen {
 						nameLen = len(s.Name)
 					}
-					if len(s.Github.Organization)+len(s.Github.Name)+len("https://github.com/")+1 > addrLen {
-						addrLen = len(s.Github.Organization) + len(s.Github.Name) + len("https://github.com") + 1
+					if len(s.Github.FullName)+len("https://github.com/") > addrLen {
+						addrLen = len(s.Github.FullName) + len("https://github.com") + 1
 					}
 				}
 			}
 			for _, s := range result.Possibles {
 				if s.Github != nil {
-					addr := fmt.Sprintf("https://github.com/%s/%s", s.Github.Organization, s.Github.Name)
+					addr := fmt.Sprintf("https://github.com/%s", s.Github.FullName)
 					inst, _ := roster.InstalledVersion(s.Name)
 					if inst == nil {
 						fmt.Printf("  %-*s %-*s  -\n",
 							nameLen, s.Name, addrLen, addr)
 					} else {
-						fmt.Printf("  %-*s %-*s   installed: %s\n",
+						fmt.Printf("  %-*s %-*s  installed: %s\n",
 							nameLen, s.Name, addrLen, addr, inst.Version)
 					}
 				}
@@ -360,6 +360,21 @@ func doRebuildPlan(cmd *cobra.Command, args []string) error {
 }
 
 func doPlan(cmd *cobra.Command, args []string) error {
+	pkgPath := os.Getenv("PKGS_PATH")
+	files := []string{}
+	for _, pkgName := range args {
+		path := filepath.Join(pkgPath, "projects", pkgName, "package.yml")
+		if _, err := os.Stat(path); err != nil {
+			fmt.Println("Package not found", path, err.Error())
+			continue
+		}
+		if err := builder.Audit(path, os.Stdout); err != nil {
+			fmt.Println("Audit failed", err.Error())
+			continue
+		}
+		files = append(files, path)
+	}
+
 	var writer io.Writer
 	if ghOut := os.Getenv("GITHUB_OUTPUT"); ghOut != "" {
 		f, _ := os.OpenFile(ghOut, os.O_CREATE|os.O_WRONLY, 0644)
@@ -368,17 +383,6 @@ func doPlan(cmd *cobra.Command, args []string) error {
 	} else {
 		writer = os.Stdout
 	}
-
-	pkgPath := os.Getenv("PKGS_PATH")
-	files := []string{}
-	for _, pkgName := range args {
-		path := filepath.Join(pkgPath, "projects", pkgName, "package.yml")
-		files = append(files, path)
-		if _, err := os.Stat(path); err != nil {
-			return err
-		}
-	}
-
 	if err := builder.Plan(files, writer); err != nil {
 		return err
 	}
@@ -395,7 +399,7 @@ func doAudit(cmd *cobra.Command, args []string) error {
 	if _, err := os.Stat(pathPackageYml); err != nil {
 		return err
 	}
-	if err := pkgs.Audit(pathPackageYml, os.Stdout); err != nil {
+	if err := builder.Audit(pathPackageYml, os.Stdout); err != nil {
 		return err
 	}
 	cmd.Print("Audit successful\n")

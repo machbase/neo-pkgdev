@@ -54,8 +54,12 @@ type GhRepoInfo struct {
 	Repo          string     `json:"repo" yaml:"repo"`
 	Name          string     `json:"name" yaml:"name"`
 	FullName      string     `json:"full_name" yaml:"full_name"`
+	Owner         *GhOwner   `json:"owner" yaml:"owner"`
+	Private       bool       `json:"private" yaml:"private"`
 	Description   string     `json:"description" yaml:"description"`
 	Homepage      string     `json:"homepage" yaml:"homepage"`
+	ForkCount     int        `json:"forks_count" yaml:"forks_count"`
+	Forks         int        `json:"forks" yaml:"forks"`
 	Language      string     `json:"language" yaml:"language"`
 	License       *GhLicense `json:"license" yaml:"license"`
 	DefaultBranch string     `json:"default_branch" yaml:"default_branch"`
@@ -67,6 +71,20 @@ type GhLicense struct {
 	SpdxId string `json:"spdx_id"`
 	Url    string `json:"url"`
 	NodeId string `json:"node_id"`
+}
+
+type GhOwner struct {
+	Login            string `json:"login"`
+	Id               int    `json:"id"`
+	NodeId           string `json:"node_id"`
+	AvatarUrl        string `json:"avatar_url"`
+	GravatarId       string `json:"gravatar_id"`
+	Url              string `json:"url"`
+	HtmlUrl          string `json:"html_url"`
+	SubscriptionsUrl string `json:"subscriptions_url"`
+	OrganizationsUrl string `json:"organizations_url"`
+	Type             string `json:"type"`
+	SiteAdmin        bool   `json:"site_admin"`
 }
 
 func GithubReleaseInfo(client *http.Client, org, repo, ver string) (*GhReleaseInfo, error) {

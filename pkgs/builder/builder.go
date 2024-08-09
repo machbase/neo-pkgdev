@@ -51,6 +51,7 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 	}
 
 	var versionName = strings.TrimPrefix(latestInfo.Name, "v")
+	versionName = strings.TrimPrefix(versionName, "V")
 	if meta.PackageName() == "neo-pkg-web-example" {
 		rsp, err := httpClient.Head(fmt.Sprintf("https://p-edge-packages.s3.ap-northeast-2.amazonaws.com/neo-pkg/machbase/neo-pkg-web-example/neo-pkg-web-example-%s.tar.gz", versionName))
 		if err == nil && rsp.StatusCode == 200 {
@@ -199,6 +200,7 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 	}
 	fmt.Fprintf(output, "Built %s\n", archivePath)
 
+	// Deploy the built files to S3
 	s3_key_id := os.Getenv("AWS_ACCESS_KEY_ID")
 	s3_secret_key := os.Getenv("AWS_SECRET_ACCESS_KEY")
 	if s3_key_id != "" && s3_secret_key != "" {

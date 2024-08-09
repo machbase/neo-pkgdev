@@ -1,4 +1,4 @@
-package pkgs
+package builder
 
 import (
 	"errors"
@@ -9,11 +9,12 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/machbase/neo-pkgdev/pkgs"
 	"github.com/machbase/neo-pkgdev/pkgs/elapsed"
 )
 
 func Audit(pathPackageYml string, output io.Writer) error {
-	meta, err := LoadPackageMetaFile(pathPackageYml)
+	meta, err := pkgs.LoadPackageMetaFile(pathPackageYml)
 	if err != nil {
 		return err
 	}
@@ -31,7 +32,7 @@ func Audit(pathPackageYml string, output io.Writer) error {
 		fmt.Fprintln(output, "   ", strings.Join(strings.Split(strings.TrimSpace(meta.Description), "\n"), "\n    "))
 	}
 
-	org, repo, err := GithubSplitPath(meta.Distributable.Github)
+	org, repo, err := pkgs.GithubSplitPath(meta.Distributable.Github)
 	if err != nil {
 		return err
 	}
@@ -41,13 +42,17 @@ func Audit(pathPackageYml string, output io.Writer) error {
 		},
 		Timeout: time.Duration(10) * time.Second,
 	}
-	repoInfo, err := GithubRepoInfo(httpClient, org, repo)
+	repoInfo, err := pkgs.GithubRepoInfo(httpClient, org, repo)
 	if err != nil {
 		return err
 	} else {
 		fmt.Fprintln(output, ">> Github")
 		fmt.Fprintln(output, "   ", "Organization", repoInfo.Organization)
 		fmt.Fprintln(output, "   ", "Repository", repoInfo.Repo)
+	}
+
+	if repoInfo.Private {
+		return errors.New("repository is private")
 	}
 
 	if err := auditLicense(repoInfo); err != nil {
@@ -66,7 +71,7 @@ func Audit(pathPackageYml string, output io.Writer) error {
 		fmt.Fprintln(output, "   ", "DefaultBranch", repoInfo.DefaultBranch)
 	}
 
-	latestInfo, err := GithubLatestReleaseInfo(httpClient, org, repo)
+	latestInfo, err := pkgs.GithubLatestReleaseInfo(httpClient, org, repo)
 	if err != nil {
 		return err
 	}
@@ -81,7 +86,7 @@ func Audit(pathPackageYml string, output io.Writer) error {
 	return nil
 }
 
-func auditPlatforms(meta *PackageMeta) error {
+func auditPlatforms(meta *pkgs.PackageMeta) error {
 	if len(meta.Platforms) == 0 {
 		return nil
 	}
@@ -102,7 +107,7 @@ func auditPlatforms(meta *PackageMeta) error {
 	return nil
 }
 
-func auditDescription(meta *PackageMeta) error {
+func auditDescription(meta *pkgs.PackageMeta) error {
 	desc := strings.TrimSpace(meta.Description)
 	if desc == "" {
 		return fmt.Errorf("description is empty")
@@ -110,7 +115,7 @@ func auditDescription(meta *PackageMeta) error {
 	return nil
 }
 
-func auditLicense(nfo *GhRepoInfo) error {
+func auditLicense(nfo *pkgs.GhRepoInfo) error {
 	if nfo.License == nil || nfo.License.SpdxId == "" {
 		if nfo.Organization != "machbase" {
 			return errors.New("license is not specified. (refer to https://spdx.org/licenses/)")
@@ -119,14 +124,14 @@ func auditLicense(nfo *GhRepoInfo) error {
 	return nil
 }
 
-func auditDefaultBranch(nfo *GhRepoInfo) error {
+func auditDefaultBranch(nfo *pkgs.GhRepoInfo) error {
 	if nfo.DefaultBranch == "" {
 		return errors.New("default branch is not specified")
 	}
 	return nil
 }
 
-func auditLatestRelease(nfo *GhReleaseInfo) error {
+func auditLatestRelease(nfo *pkgs.GhReleaseInfo) error {
 	if nfo.TagName == "" {
 		return errors.New("latest release is not found")
 	}
