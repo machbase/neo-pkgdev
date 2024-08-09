@@ -27,6 +27,10 @@ type PackageMeta struct {
 	pkgName    string     `json:"-"`
 }
 
+func (meta *PackageMeta) RosterName() RosterName {
+	return meta.rosterName
+}
+
 type Distributable struct {
 	Github          string `yaml:"github"`
 	Url             string `yaml:"url"`
@@ -284,6 +288,11 @@ func (r *Roster) PushCache(rosterName RosterName, rosterRepoUrl string) error {
 	w, err := repo.Worktree()
 	if err != nil {
 		return fmt.Errorf("worktree error: %w", err)
+	}
+	status, _ := w.Status()
+	fmt.Println("repo isClean", status.IsClean())
+	if status.IsClean() {
+		return nil
 	}
 	w.AddWithOptions(&git.AddOptions{All: true, Glob: ".cache/*"})
 	w.Commit("rebuild-cache", &git.CommitOptions{})

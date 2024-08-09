@@ -280,9 +280,7 @@ func doRebuildCache(cmd *cobra.Command, args []string) error {
 		return
 	})
 
-	if err := roster.PushAllCache(); err != nil {
-		return err
-	}
+	roster.PushAllCache()
 	return nil
 }
 
