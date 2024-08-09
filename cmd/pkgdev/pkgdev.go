@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/machbase/neo-pkgdev/pkgs"
+	"github.com/machbase/neo-pkgdev/pkgs/builder"
 	"github.com/spf13/cobra"
 )
 
@@ -352,7 +353,7 @@ func doRebuildPlan(cmd *cobra.Command, args []string) error {
 			filepath.Join(baseDir, "meta", string(pkgs.ROSTER_CENTRAL), "projects", "neo-pkg-web-example", "package.yml"),
 		}
 	}
-	if err := pkgs.Plan(targetPkgs, writer); err != nil {
+	if err := builder.Plan(targetPkgs, writer); err != nil {
 		return err
 	}
 	return nil
@@ -378,7 +379,7 @@ func doPlan(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if err := pkgs.Plan(files, writer); err != nil {
+	if err := builder.Plan(files, writer); err != nil {
 		return err
 	}
 	return nil
@@ -412,7 +413,7 @@ func doBuild(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	installDest := cmd.Flag("install").Value.String()
-	if err := pkgs.Build(pathPackageYml, installDest, os.Stdout); err != nil {
+	if err := builder.Build(pathPackageYml, installDest, os.Stdout); err != nil {
 		return err
 	}
 	return nil

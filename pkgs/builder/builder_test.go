@@ -1,4 +1,4 @@
-package pkgs_test
+package builder_test
 
 import (
 	"fmt"
@@ -10,14 +10,14 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/machbase/neo-pkgdev/pkgs"
+	"github.com/machbase/neo-pkgdev/pkgs/builder"
 )
 
 func TestBuild(t *testing.T) {
 	t.Skip("Skip test")
-	builder, err := pkgs.NewBuilder(nil, "0.0.1",
-		pkgs.WithWorkDir("./tmp/builder"),
-		pkgs.WithDistDir("./tmp/dist"),
+	builder, err := builder.NewBuilder(nil, "0.0.1",
+		builder.WithWorkDir("./tmp/builder"),
+		builder.WithDistDir("./tmp/dist"),
 	)
 	if err != nil {
 		panic(err)

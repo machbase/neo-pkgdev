@@ -31,6 +31,10 @@ func (meta *PackageMeta) RosterName() RosterName {
 	return meta.rosterName
 }
 
+func (meta *PackageMeta) PackageName() string {
+	return meta.pkgName
+}
+
 type Distributable struct {
 	Github          string `yaml:"github"`
 	Url             string `yaml:"url"`

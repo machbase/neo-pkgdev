@@ -1,4 +1,4 @@
-package pkgs
+package builder
 
 import (
 	"fmt"
@@ -15,10 +15,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/machbase/neo-pkgdev/pkgs"
 )
 
 func Build(pathPackageYml string, dest string, output io.Writer) error {
-	meta, err := LoadPackageMetaFile(pathPackageYml)
+	meta, err := pkgs.LoadPackageMetaFile(pathPackageYml)
 	if err != nil {
 		return err
 	}
@@ -29,7 +30,7 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 		return nil
 	}
 
-	org, repo, err := GithubSplitPath(meta.Distributable.Github)
+	org, repo, err := pkgs.GithubSplitPath(meta.Distributable.Github)
 	if err != nil {
 		return err
 	}
@@ -39,18 +40,18 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 		},
 		Timeout: time.Duration(10) * time.Second,
 	}
-	repoInfo, err := GithubRepoInfo(httpClient, org, repo)
+	repoInfo, err := pkgs.GithubRepoInfo(httpClient, org, repo)
 	if err != nil {
 		return err
 	}
 
-	latestInfo, err := GithubLatestReleaseInfo(httpClient, org, repo)
+	latestInfo, err := pkgs.GithubLatestReleaseInfo(httpClient, org, repo)
 	if err != nil {
 		return err
 	}
 
 	var versionName = strings.TrimPrefix(latestInfo.Name, "v")
-	if meta.pkgName == "neo-pkg-web-example" {
+	if meta.PackageName() == "neo-pkg-web-example" {
 		rsp, err := httpClient.Head(fmt.Sprintf("https://p-edge-packages.s3.ap-northeast-2.amazonaws.com/neo-pkg/machbase/neo-pkg-web-example/neo-pkg-web-example-%s.tar.gz", versionName))
 		if err == nil && rsp.StatusCode == 200 {
 			fmt.Fprintln(output, "Skip Build.")
@@ -119,7 +120,7 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 	} else {
 		// Create build script
 		var buildScript string
-		if f, err := makeScriptFile(meta.BuildRecipe.Script, dest, "__build__.sh"); err != nil {
+		if f, err := pkgs.MakeScriptFile(meta.BuildRecipe.Script, dest, "__build__.sh"); err != nil {
 			return err
 		} else {
 			buildScript = f
@@ -155,7 +156,7 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 			}
 		} else {
 			var testScript string
-			if f, err := makeScriptFile(meta.TestRecipe.Script, dest, "__test__.sh"); err != nil {
+			if f, err := pkgs.MakeScriptFile(meta.TestRecipe.Script, dest, "__test__.sh"); err != nil {
 				return err
 			} else {
 				testScript = f
@@ -230,29 +231,15 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 	return nil
 }
 
-func makeScriptFile(script []string, destDir string, filename string) (string, error) {
-	var buildScript, _ = filepath.Abs(filepath.Join(destDir, filename))
-	f, err := os.OpenFile(buildScript, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-	fmt.Fprintln(f, "set -e")
-	for _, line := range script {
-		fmt.Fprintln(f, line)
-	}
-	return buildScript, nil
-}
-
 type Builder struct {
-	ds *PackageMeta
+	ds *pkgs.PackageMeta
 
 	workDir    string
 	distDir    string
 	httpClient *http.Client
 }
 
-func NewBuilder(meta *PackageMeta, version string, opts ...BuilderOption) (*Builder, error) {
+func NewBuilder(meta *pkgs.PackageMeta, version string, opts ...BuilderOption) (*Builder, error) {
 	ret := &Builder{ds: meta}
 	for _, opt := range opts {
 		opt(ret)
@@ -285,7 +272,7 @@ func (b *Builder) Build(ver string) error {
 			Timeout: time.Duration(10) * time.Second,
 		}
 	}
-	var targetRelease *GhReleaseInfo
+	var targetRelease *pkgs.GhReleaseInfo
 	if lr, err := b.getReleaseInfo(ver); err != nil {
 		return err
 	} else {
@@ -367,11 +354,11 @@ func (b *Builder) Build(ver string) error {
 	return nil
 }
 
-func (b *Builder) getReleaseInfo(ver string) (*GhReleaseInfo, error) {
+func (b *Builder) getReleaseInfo(ver string) (*pkgs.GhReleaseInfo, error) {
 	if b.ds.Distributable.Github == "" {
 		return nil, fmt.Errorf("distributable.github is not set")
 	}
-	org, repo, err := GithubSplitPath(b.ds.Distributable.Github)
+	org, repo, err := pkgs.GithubSplitPath(b.ds.Distributable.Github)
 	if err != nil {
 		return nil, err
 	}
@@ -381,8 +368,8 @@ func (b *Builder) getReleaseInfo(ver string) (*GhReleaseInfo, error) {
 	}
 
 	if ver != "" || strings.ToLower(ver) == "latest" {
-		return GithubLatestReleaseInfo(b.httpClient, org, repo)
+		return pkgs.GithubLatestReleaseInfo(b.httpClient, org, repo)
 	} else {
-		return GithubReleaseInfo(b.httpClient, org, repo, ver)
+		return pkgs.GithubReleaseInfo(b.httpClient, org, repo, ver)
 	}
 }

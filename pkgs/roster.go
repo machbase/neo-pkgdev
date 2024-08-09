@@ -265,7 +265,7 @@ func (r *Roster) install0(name string, output io.Writer, env []string) error {
 	}
 
 	if meta.InstallRecipe != nil {
-		if sc, err := makeScriptFile(meta.InstallRecipe.Script, unarchiveDir, "__install__.sh"); err != nil {
+		if sc, err := MakeScriptFile(meta.InstallRecipe.Script, unarchiveDir, "__install__.sh"); err != nil {
 			return err
 		} else {
 			cmd := exec.Command("sh", "-c", sc)
@@ -296,7 +296,7 @@ func (r *Roster) Uninstall(name string, output io.Writer, env []string) error {
 	}
 
 	if meta.UninstallRecipe != nil {
-		if sc, err := makeScriptFile(meta.UninstallRecipe.Script, inst.Path, "__uninstall__.sh"); err != nil {
+		if sc, err := MakeScriptFile(meta.UninstallRecipe.Script, inst.Path, "__uninstall__.sh"); err != nil {
 			return err
 		} else {
 			cmd := exec.Command("sh", "-c", sc)
@@ -325,4 +325,18 @@ func (r *Roster) Uninstall(name string, output io.Writer, env []string) error {
 func (r *Roster) WritePackageDistributionAvailability(pda *PackageDistributionAvailability) error {
 	path := filepath.Join(r.metaDir, string(pda.rosterName), ".cache", pda.Name, fmt.Sprintf("%s.yml", pda.Version))
 	return WritePackageDistributionAvailability(path, pda)
+}
+
+func MakeScriptFile(script []string, destDir string, filename string) (string, error) {
+	var buildScript, _ = filepath.Abs(filepath.Join(destDir, filename))
+	f, err := os.OpenFile(buildScript, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	fmt.Fprintln(f, "set -e")
+	for _, line := range script {
+		fmt.Fprintln(f, line)
+	}
+	return buildScript, nil
 }
