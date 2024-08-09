@@ -29,15 +29,6 @@ func NewCmd() *cobra.Command {
 		},
 	}
 
-	syncCmd := &cobra.Command{
-		Use:   "sync [flags]",
-		Short: "Sync package roster",
-		RunE:  doSync,
-	}
-	syncCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
-	syncCmd.MarkPersistentFlagRequired("dir")
-	syncCmd.PersistentFlags().Bool("check", false, "Check updates only")
-
 	searchCmd := &cobra.Command{
 		Use:   "search [flags] <package name>",
 		Short: "Search package info",
@@ -55,20 +46,12 @@ func NewCmd() *cobra.Command {
 	updateCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
 	updateCmd.MarkPersistentFlagRequired("dir")
 
-	upgradeCmd := &cobra.Command{
-		Use:   "upgrade [flags] <package name, ...>",
-		Short: "Upgrade packages",
-		RunE:  doUpgrade,
-	}
-	upgradeCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
-	upgradeCmd.MarkPersistentFlagRequired("dir")
-
 	installCmd := &cobra.Command{
-		Use:   "install [flags] <package name>",
-		Short: "Install a package",
+		Use:   "install [flags] <package name, ...>",
+		Short: "install packages",
 		RunE:  doInstall,
 	}
-	installCmd.Args = cobra.ExactArgs(1)
+	installCmd.Args = cobra.MinimumNArgs(1)
 	installCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
 	installCmd.MarkPersistentFlagRequired("dir")
 
@@ -111,17 +94,24 @@ func NewCmd() *cobra.Command {
 	rebuildPlanCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
 	rebuildPlanCmd.MarkPersistentFlagRequired("dir")
 
+	rebuildCacheCmd := &cobra.Command{
+		Use:   "rebuild-cache [flags]",
+		Short: "Rebuild cache",
+		RunE:  doRebuildCache,
+	}
+	rebuildCacheCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
+	rebuildCacheCmd.MarkPersistentFlagRequired("dir")
+
 	rootCmd.AddCommand(
 		updateCmd,
-		upgradeCmd,
 		installCmd,
 		uninstallCmd,
 		searchCmd,
-		syncCmd,
 		auditCmd,
 		planCmd,
 		buildCmd,
 		rebuildPlanCmd,
+		rebuildCacheCmd,
 	)
 	return rootCmd
 }
@@ -131,12 +121,12 @@ func doSearch(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	mgr, err := pkgs.NewPkgManager(baseDir)
+	roster, err := pkgs.NewRoster(baseDir)
 	if err != nil {
 		return err
 	}
 	name := args[0]
-	result, err := mgr.Search(name, 10)
+	result, err := roster.Search(name, 10)
 	if err != nil {
 		return err
 	}
@@ -161,48 +151,16 @@ func doSearch(cmd *cobra.Command, args []string) error {
 			for _, s := range result.Possibles {
 				if s.Github != nil {
 					addr := fmt.Sprintf("https://github.com/%s/%s", s.Github.Organization, s.Github.Name)
-					if s.InstalledVersion == "" {
+					inst, _ := roster.InstalledVersion(s.Name)
+					if inst == nil {
 						fmt.Printf("  %-*s %-*s  -\n",
 							nameLen, s.Name, addrLen, addr)
 					} else {
 						fmt.Printf("  %-*s %-*s   installed: %s\n",
-							nameLen, s.Name, addrLen, addr, s.InstalledVersion)
+							nameLen, s.Name, addrLen, addr, inst.Version)
 					}
 				}
 			}
-		}
-	}
-	return nil
-}
-
-func doSync(cmd *cobra.Command, args []string) error {
-	baseDir, err := cmd.Flags().GetString("dir")
-	if err != nil {
-		return err
-	}
-	check, err := cmd.Flags().GetBool("check")
-	if err != nil {
-		return err
-	}
-
-	mgr, err := pkgs.NewPkgManager(baseDir)
-	if err != nil {
-		return err
-	}
-	if check {
-		check, err := mgr.SyncCheck()
-		if err != nil {
-			return err
-		}
-		if check != nil && check.NeedSync {
-			fmt.Println("Need to sync")
-		} else {
-			fmt.Println("Already up-to-date")
-		}
-	} else {
-		err = mgr.Sync()
-		if err != nil {
-			return err
 		}
 	}
 	return nil
@@ -213,69 +171,23 @@ func doUpdate(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	mgr, err := pkgs.NewPkgManager(baseDir)
+	roster, err := pkgs.NewRoster(baseDir)
 	if err != nil {
 		return err
 	}
-	upd, err := mgr.Update()
+	upd, err := roster.Update()
 	if err != nil {
 		return err
 	}
-	if upd == nil || len(upd.Updated) == 0 && len(upd.Upgradable) == 0 {
-		fmt.Println("Already up-to-date")
-	} else {
-		fmt.Println("Updated packages:")
-		if len(upd.Updated) > 0 {
-			for _, p := range upd.Updated {
-				fmt.Println("  ", p.PkgName, "   ", strings.TrimPrefix(p.LatestRelease, "v"))
-			}
-		} else {
-			fmt.Println("   no updated packages")
-		}
+	if upd != nil && len(upd.Upgradable) > 0 {
 		fmt.Println("Upgradable packages:")
 		if len(upd.Upgradable) > 0 {
 			for _, p := range upd.Upgradable {
 				fmt.Println("  ", p.PkgName, p.InstalledVersion, "-->", strings.TrimPrefix(p.LatestRelease, "v"), "available")
-
-				// newDist, _ := cache.RemoteDistribution()
-				// if newDist != nil && oldCache != nil {
-				// 	rsp, err := httpClient.Head(newDist.Url)
-				// 	if err != nil {
-				// 		return oldCache, nil
-				// 	}
-				// 	rsp.Body.Close()
-				// 	// built package is not uploaded yet
-				// 	if rsp.StatusCode != http.StatusOK {
-				// 		return oldCache, nil
-				// 	}
-				// 	contentLength := rsp.Header.Get("Content-Length")
-				// 	if contentLength != "" {
-				// 		if ln, err := strconv.ParseInt(contentLength, 10, 64); err == nil {
-				// 			cache.LatestReleaseSize = ln
-				// 		}
-				// 	}
-				// }
-
 			}
 		} else {
 			fmt.Println("   no upgradable packages")
 		}
-	}
-	return nil
-}
-
-func doUpgrade(cmd *cobra.Command, args []string) error {
-	baseDir, err := cmd.Flags().GetString("dir")
-	if err != nil {
-		return err
-	}
-	mgr, err := pkgs.NewPkgManager(baseDir)
-	if err != nil {
-		return err
-	}
-	results := mgr.Upgrade(args, nil)
-	for _, r := range results {
-		fmt.Println(r.PkgName, "upgraded", r.Cache.InstalledVersion, r.Cache.InstalledPath)
 	}
 	return nil
 }
@@ -285,16 +197,18 @@ func doInstall(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	mgr, err := pkgs.NewPkgManager(baseDir)
+	roster, err := pkgs.NewRoster(baseDir)
 	if err != nil {
 		return err
 	}
-	cache, err := mgr.Install(args[0], os.Stdout, nil)
-	if err != nil {
-		return err
+	results := roster.Install(args, nil)
+	for _, r := range results {
+		if r.Installed == nil {
+			continue
+		}
+		fmt.Println(r.PkgName, "installed", r.Installed.Version, r.Installed.Path)
 	}
-	fmt.Println("Installed to", cache.InstalledPath, cache.InstalledVersion)
-	return err
+	return nil
 }
 
 func doUninstall(cmd *cobra.Command, args []string) error {
@@ -302,12 +216,12 @@ func doUninstall(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	mgr, err := pkgs.NewPkgManager(baseDir)
+	roster, err := pkgs.NewRoster(baseDir)
 	if err != nil {
 		return err
 	}
 
-	_, err = mgr.Uninstall(args[0], os.Stdout, nil)
+	err = roster.Uninstall(args[0], os.Stdout, nil)
 	if err != nil {
 		return err
 	}
@@ -315,16 +229,73 @@ func doUninstall(cmd *cobra.Command, args []string) error {
 	return err
 }
 
+func doRebuildCache(cmd *cobra.Command, args []string) error {
+	baseDir, err := cmd.Flags().GetString("dir")
+	if err != nil {
+		return err
+	}
+
+	roster, err := pkgs.NewRoster(baseDir)
+	if err != nil {
+		return err
+	}
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+		},
+		Timeout: time.Duration(20) * time.Second,
+	}
+
+	roster.WalkPackageMeta(func(name string) (ret bool) {
+		ret = true
+		meta, err := roster.LoadPackageMeta(name)
+		if err != nil {
+			fmt.Println(name, "meta load failed", err.Error())
+			return
+		}
+		cache, err := roster.UpdatePackageCache(meta)
+		if err != nil {
+			fmt.Println(name, "cache update failed", err.Error())
+			return
+		}
+		dist, err := cache.RemoteDistribution()
+		if err != nil {
+			fmt.Println(name, "distribution not found", err.Error())
+			return
+		}
+		avail, err := dist.CheckAvailability(httpClient)
+		if err != nil {
+			fmt.Println(name, "distribution check failed", err.Error())
+			return
+		}
+		if !avail.Available {
+			fmt.Println(name, cache.LatestVersion, "distribution not available")
+			return
+		}
+		fmt.Println(name, cache.LatestVersion, avail.DistUrl)
+		if err := roster.WritePackageDistributionAvailability(avail); err != nil {
+			fmt.Println(name, "distribution availability write failed", err.Error())
+			return
+		}
+		return
+	})
+
+	if err := roster.PushAllCache(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func doRebuildPlan(cmd *cobra.Command, args []string) error {
 	baseDir, err := cmd.Flags().GetString("dir")
 	if err != nil {
 		return err
 	}
-	mgr, err := pkgs.NewPkgManager(baseDir)
+	roster, err := pkgs.NewRoster(baseDir)
 	if err != nil {
 		return err
 	}
-	if err := mgr.Sync(); err != nil {
+	if err := roster.SyncAll(); err != nil {
 		return err
 	}
 	httpClient := &http.Client{
@@ -335,35 +306,36 @@ func doRebuildPlan(cmd *cobra.Command, args []string) error {
 	}
 
 	targetPkgs := []string{}
-	mgr.WalkPackages(func(name string) bool {
-		meta, err := mgr.LoadPackageMeta(name)
+	roster.WalkPackageMeta(func(name string) (ret bool) {
+		ret = true
+		meta, err := roster.LoadPackageMeta(name)
 		if err != nil {
-			return true
+			return
 		}
-		cache, _ := mgr.LoadPackageCache(name, meta, true)
+		cache, _ := roster.UpdatePackageCache(meta)
 		if cache == nil {
 			fmt.Println(name, "cache not found")
-			return true
+			return
 		}
-		dist, _ := cache.RemoteDistribution()
-		rsp, err := httpClient.Head(dist.Url)
+		dist, err := cache.RemoteDistribution()
 		if err != nil {
-			fmt.Println(cache.Name, cache.LatestVersion, dist.Url, err.Error())
-			return true
+			fmt.Println(name, "distribution not found", err.Error())
+			return
 		}
-		rsp.Body.Close()
-		if rsp.StatusCode == 200 {
-			contentLength := ""
-			if cl := rsp.Header.Get("Content-Length"); cl != "" {
-				contentLength = rsp.Header.Get("Content-Length")
-			}
-			fmt.Println(cache.Name, cache.LatestVersion, dist.Url, rsp.StatusCode, contentLength)
-			return true
+		avail, err := dist.CheckAvailability(httpClient)
+		if err != nil {
+			fmt.Println(name, "distribution check failed", err.Error())
+			return
 		}
-		fmt.Println(cache.Name, cache.LatestVersion, dist.Url, rsp.StatusCode)
-		packageYmlPath := filepath.Join(baseDir, "meta", string(pkgs.ROSTER_CENTRAL), "projects", name, "package.yml")
-		targetPkgs = append(targetPkgs, packageYmlPath)
-		return true
+		fmt.Println(avail.String())
+
+		roster.WritePackageDistributionAvailability(avail)
+
+		if !avail.Available {
+			packageYmlPath := filepath.Join(baseDir, "meta", string(pkgs.ROSTER_CENTRAL), "projects", name, "package.yml")
+			targetPkgs = append(targetPkgs, packageYmlPath)
+		}
+		return
 	})
 	// even there are no packages to rebuild, it will print the plan
 	// so that github action will not raise error
@@ -454,14 +426,14 @@ func print(nr *pkgs.PackageCache) {
 		fmt.Println("Organization        ", nr.Github.Organization)
 		fmt.Println("Repository          ", nr.Github.Name)
 		fmt.Println("Description         ", nr.Github.Description)
+		fmt.Println("License             ", nr.Github.License)
 	}
 	fmt.Println("Latest Version      ", nr.LatestVersion)
 	fmt.Println("Latest Release      ", nr.LatestRelease)
 	fmt.Println("Latest Release Tag  ", nr.LatestReleaseTag)
 	fmt.Println("Published At        ", nr.PublishedAt)
-	fmt.Println("Url                 ", nr.Url)
+	if nr.Url != "" {
+		fmt.Println("Url                 ", nr.Url)
+	}
 	fmt.Println("StripComponents     ", nr.StripComponents)
-	fmt.Println("Cached At           ", nr.CachedAt)
-	fmt.Println("Installed Version   ", nr.InstalledVersion)
-	fmt.Println("Installed Path      ", nr.InstalledPath)
 }

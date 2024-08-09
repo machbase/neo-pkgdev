@@ -13,7 +13,7 @@ import (
 )
 
 func Audit(pathPackageYml string, output io.Writer) error {
-	meta, err := parsePackageMetaFile(pathPackageYml)
+	meta, err := LoadPackageMetaFile(pathPackageYml)
 	if err != nil {
 		return err
 	}

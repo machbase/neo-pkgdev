@@ -13,6 +13,32 @@ type PackageSearch struct {
 type PackageSearchResult struct {
 	ExactMatch *PackageCache   `json:"exact"`
 	Possibles  []*PackageCache `json:"possibles"`
+	Broken     []string        `json:"broken"`
+}
+
+// if name is empty, it will return all featured packages
+func (r *Roster) Search(name string, possible int) (*PackageSearchResult, error) {
+	if name == "" {
+		prj, err := r.FeaturedPackages()
+		if err != nil {
+			return nil, err
+		}
+		ret := &PackageSearchResult{}
+		for _, pkg := range prj.Featured {
+			cache, err := r.LoadPackageCache(pkg)
+			if err != nil {
+				ret.Broken = append(ret.Broken, pkg)
+			} else {
+				ret.Possibles = append(ret.Possibles, cache)
+			}
+			if possible > 0 && len(ret.Possibles) >= possible {
+				break
+			}
+		}
+		return ret, nil
+	} else {
+		return r.SearchPackage(name, possible)
+	}
 }
 
 // Search package info by name, if it finds the package, return the package info.
@@ -26,7 +52,7 @@ func (r *Roster) SearchPackage(name string, possibles int) (*PackageSearchResult
 	}
 	ret := &PackageSearchResult{}
 	if nfo != nil {
-		cache, err := r.LoadPackageCache(name, nfo, false)
+		cache, err := r.LoadPackageCache(name)
 		if err != nil {
 			return nil, err
 		}
@@ -37,7 +63,7 @@ func (r *Roster) SearchPackage(name string, possibles int) (*PackageSearchResult
 	}
 	// search similar package names
 	candidates := []*PackageSearch{}
-	r.cacheManagers[ROSTER_CENTRAL].Walk(func(nm string) bool {
+	r.WalkPackageCache(func(nm string) bool {
 		score := CompareTwoStrings(strings.ToLower(nm), name)
 		if score > 0.1 {
 			candidates = append(candidates, &PackageSearch{Name: nm, Score: score})
@@ -57,7 +83,7 @@ func (r *Roster) SearchPackage(name string, possibles int) (*PackageSearchResult
 		candidates = candidates[:possibles]
 	}
 	for _, c := range candidates {
-		cache, err := r.cacheManagers[ROSTER_CENTRAL].ReadCache(c.Name)
+		cache, err := r.LoadPackageCache(c.Name)
 		if err != nil {
 			continue
 		}

@@ -12,7 +12,7 @@ import (
 func Plan(pkgFiles []string, output io.Writer) error {
 	plans := []*BuildPlan{}
 	for _, pkgPath := range pkgFiles {
-		meta, err := parsePackageMetaFile(pkgPath)
+		meta, err := LoadPackageMetaFile(pkgPath)
 		if err != nil {
 			fmt.Println(err.Error())
 			os.Exit(1)
