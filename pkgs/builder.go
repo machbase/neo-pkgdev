@@ -48,6 +48,16 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 	if err != nil {
 		return err
 	}
+
+	var versionName = strings.TrimPrefix(latestInfo.Name, "v")
+	if meta.pkgName == "neo-pkg-web-example" {
+		rsp, err := httpClient.Head(fmt.Sprintf("https://p-edge-packages.s3.ap-northeast-2.amazonaws.com/neo-pkg/machbase/neo-pkg-web-example/neo-pkg-web-example-%s.tar.gz", versionName))
+		if err == nil && rsp.StatusCode == 200 {
+			fmt.Fprintln(output, "Skip Build.")
+			return nil
+		}
+	}
+
 	fmt.Fprintln(output, "Build", repoInfo.Organization, repoInfo.Repo, latestInfo.TagName)
 
 	// Download the source tarball
@@ -167,7 +177,6 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 	}
 	// Copy the built files to dist dir
 	var archiveCmd *exec.Cmd
-	var versionName = strings.TrimPrefix(latestInfo.Name, "v")
 	var archivePath = fmt.Sprintf("%s-%s%s", repoInfo.Repo, versionName, archiveExt)
 	if len(meta.Platforms) >= 1 {
 		archivePath = fmt.Sprintf("%s-%s-%s-%s%s", repoInfo.Repo, versionName, runtime.GOOS, runtime.GOARCH, archiveExt)
