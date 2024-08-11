@@ -1,6 +1,9 @@
 package builder
 
 import (
+	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,10 +14,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/machbase/neo-pkgdev/pkgs"
 )
 
@@ -204,29 +207,43 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 	s3_key_id := os.Getenv("AWS_ACCESS_KEY_ID")
 	s3_secret_key := os.Getenv("AWS_SECRET_ACCESS_KEY")
 	if s3_key_id != "" && s3_secret_key != "" {
-		sess, err := session.NewSession(&aws.Config{
-			Region:      aws.String("ap-northeast-2"),
-			Credentials: credentials.NewStaticCredentials(s3_key_id, s3_secret_key, ""),
-		})
+		file, err := os.Open(filepath.Join(dest, archivePath))
 		if err != nil {
 			return err
 		}
-		file, err := os.Open(filepath.Join(dest, archivePath))
+		hmx := sha256.New()
+		if _, err := io.Copy(hmx, file); err != nil {
+			return err
+		}
+		file.Close()
+		checksum := base64.StdEncoding.EncodeToString(hmx.Sum(nil))
+
+		file, err = os.Open(filepath.Join(dest, archivePath))
 		if err != nil {
 			return err
 		}
 		defer file.Close()
 
-		s3obj, err := s3.New(sess).PutObject(&s3.PutObjectInput{
-			Bucket:             aws.String("p-edge-packages"),
-			Key:                aws.String(fmt.Sprintf("neo-pkg/%s/%s/%s", org, repo, filepath.Base(archivePath))),
-			Body:               file,
-			ContentDisposition: aws.String("attachment"),
-		})
+		cfg, err := config.LoadDefaultConfig(context.TODO(),
+			config.WithRegion("ap-northeast-2"),
+			config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(s3_key_id, s3_secret_key, "")),
+		)
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(output, "Deployed %s\n", s3obj.String())
+		client := s3.NewFromConfig(cfg)
+		_, err = client.PutObject(context.TODO(),
+			&s3.PutObjectInput{
+				Bucket:         aws.String("p-edge-packages"),
+				Key:            aws.String(fmt.Sprintf("neo-pkg/%s/%s/%s", org, repo, filepath.Base(archivePath))),
+				Body:           file,
+				ChecksumSHA256: aws.String(checksum),
+			})
+		if err != nil {
+			return err
+		}
+
+		fmt.Fprintln(output, "Deployed. sha-256:", checksum)
 	} else {
 		fmt.Fprintln(output, "Skip deploy.")
 	}
