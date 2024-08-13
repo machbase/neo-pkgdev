@@ -18,12 +18,12 @@ type PackageSearchResult struct {
 
 // if name is empty, it will return all featured packages
 func (r *Roster) Search(name string, possible int) (*PackageSearchResult, error) {
+	ret := &PackageSearchResult{}
 	if name == "" {
 		prj, err := r.FeaturedPackages()
 		if err != nil {
 			return nil, err
 		}
-		ret := &PackageSearchResult{}
 		for _, pkg := range prj.Featured {
 			cache, err := r.LoadPackageCache(pkg)
 			if err != nil {
@@ -35,10 +35,29 @@ func (r *Roster) Search(name string, possible int) (*PackageSearchResult, error)
 				break
 			}
 		}
-		return ret, nil
 	} else {
-		return r.SearchPackage(name, possible)
+		if result, err := r.SearchPackage(name, possible); err != nil {
+			return nil, err
+		} else {
+			ret = result
+		}
 	}
+	// check if installed
+	if ret.ExactMatch != nil {
+		inst, _ := r.InstalledVersion(ret.ExactMatch.Name)
+		if inst != nil {
+			ret.ExactMatch.InstalledVersion = inst.Version
+			ret.ExactMatch.InstalledPath = inst.Path
+		}
+	}
+	for _, s := range ret.Possibles {
+		inst, _ := r.InstalledVersion(s.Name)
+		if inst != nil {
+			s.InstalledVersion = inst.Version
+			s.InstalledPath = inst.Path
+		}
+	}
+	return ret, nil
 }
 
 // Search package info by name, if it finds the package, return the package info.

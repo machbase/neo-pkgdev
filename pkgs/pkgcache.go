@@ -26,6 +26,9 @@ type PackageCache struct {
 	Url               string      `yaml:"url,omitempty" json:"url,omitempty"`
 	StripComponents   int         `yaml:"strip_components" json:"strip_components"`
 	rosterName        RosterName  `yaml:"-" json:"-"`
+	// this field is not saved in cache file, but includes in json api response
+	InstalledVersion string `yaml:"-" json:"installed_version"`
+	InstalledPath    string `yaml:"-" json:"installed_path"`
 }
 
 func (cache *PackageCache) RemoteDistribution() (*PackageDistribution, error) {
