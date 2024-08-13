@@ -30,6 +30,19 @@ func Untar(r io.Reader, dir string, stripComponents int) error {
 	return untar(r, dir, stripComponents)
 }
 
+func StripComponents(p string, stripComponents int) string {
+	if stripComponents == 0 {
+		return filepath.FromSlash(p)
+	}
+	for i := 0; i < stripComponents; i++ {
+		p = p[strings.Index(p, "/")+1:]
+		if j := strings.Index(p, "/"); j != -1 {
+			p = p[j+1:]
+		}
+	}
+	return filepath.FromSlash(p)
+}
+
 func untar(r io.Reader, dir string, stripComponents int) (err error) {
 	t0 := time.Now()
 	nFiles := 0
@@ -60,15 +73,7 @@ func untar(r io.Reader, dir string, stripComponents int) (err error) {
 		if !validRelPath(f.Name) {
 			return fmt.Errorf("tar contained invalid name error %q", f.Name)
 		}
-		rel := filepath.FromSlash(f.Name)
-		if stripComponents > 0 {
-			rel = rel[strings.Index(rel, "/")+1:]
-			for i := 0; i < stripComponents; i++ {
-				if j := strings.Index(rel, "/"); j != -1 {
-					rel = rel[j+1:]
-				}
-			}
-		}
+		rel := StripComponents(f.Name, stripComponents)
 		abs := filepath.Join(dir, rel)
 
 		mode := f.FileInfo().Mode()
