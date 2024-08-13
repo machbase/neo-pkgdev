@@ -138,6 +138,7 @@ func (r *Roster) install0(name string, output io.Writer, env []string) error {
 		if err != nil {
 			return err
 		}
+		defer fd.Close()
 		if err := untar.Untar(fd, unarchiveDir, dist.StripComponents); err != nil {
 			return err
 		}
@@ -160,20 +161,25 @@ func (r *Roster) install0(name string, output io.Writer, env []string) error {
 	}
 
 	if meta.InstallRecipe != nil {
-		if sc, err := MakeScriptFile(meta.InstallRecipe.Script, unarchiveDir, "__install__.sh"); err != nil {
-			return err
+		// TODO: make install recipe to work on windows
+		if runtime.GOOS == "windows" {
+
 		} else {
-			cmd := exec.Command("sh", "-c", sc)
-			cmd.Dir = currentVerDir
-			cmd.Stdout = output
-			cmd.Stderr = output
-			cmd.Env = append(os.Environ(), env...)
-			err = cmd.Run()
-			if err != nil {
+			if sc, err := MakeScriptFile(meta.InstallRecipe.Script, unarchiveDir, "__install__.sh"); err != nil {
 				return err
+			} else {
+				cmd := exec.Command("sh", "-c", sc)
+				cmd.Dir = currentVerDir
+				cmd.Stdout = output
+				cmd.Stderr = output
+				cmd.Env = append(os.Environ(), env...)
+				err = cmd.Run()
+				if err != nil {
+					return err
+				}
 			}
+			os.Remove(filepath.Join(unarchiveDir, "__install__.sh"))
 		}
-		os.Remove(filepath.Join(unarchiveDir, "__install__.sh"))
 	}
 	// remove archive file
 	os.Remove(archiveFile)
