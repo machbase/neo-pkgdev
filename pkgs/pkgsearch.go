@@ -13,7 +13,7 @@ type PackageSearch struct {
 type PackageSearchResult struct {
 	ExactMatch *PackageCache   `json:"exact"`
 	Possibles  []*PackageCache `json:"possibles"`
-	Broken     []string        `json:"broken"`
+	Broken     []string        `json:"broken,omitempty"`
 }
 
 // if name is empty, it will return all featured packages
