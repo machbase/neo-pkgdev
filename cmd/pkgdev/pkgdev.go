@@ -273,10 +273,16 @@ func doRebuildCache(cmd *cobra.Command, args []string) error {
 			fmt.Println(name, cache.LatestVersion, "distribution not available")
 			return
 		}
+		if avail.ContentLength != cache.LatestReleaseSize {
+			cache.LatestReleaseSize = avail.ContentLength
+		}
 		fmt.Println(name, cache.LatestVersion, avail.DistUrl)
 		if err := roster.WritePackageDistributionAvailability(avail); err != nil {
 			fmt.Println(name, "distribution availability write failed", err.Error())
 			return
+		}
+		if err := roster.WritePackageCache(cache); err != nil {
+			fmt.Println(name, "cache write failed", err.Error())
 		}
 		return
 	})
@@ -314,6 +320,10 @@ func doRebuildPlan(cmd *cobra.Command, args []string) error {
 		cache, _ := roster.UpdatePackageCache(meta)
 		if cache == nil {
 			fmt.Println(name, "cache not found")
+			return
+		}
+		if err := roster.WritePackageCache(cache); err != nil {
+			fmt.Println(name, "cache write failed", err.Error())
 			return
 		}
 		dist, err := cache.RemoteDistribution()

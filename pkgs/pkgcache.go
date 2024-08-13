@@ -92,8 +92,14 @@ func (roster *Roster) InstalledVersion(pkgName string) (*InstalledVersion, error
 	}
 }
 
+func (roster *Roster) WritePackageCache(cache *PackageCache) error {
+	cachePath := filepath.Join(roster.metaDir, string(cache.rosterName), ".cache", cache.Name, "cache.yml")
+	return WritePackageCacheFile(cachePath, cache)
+}
+
+// Refresh the package cache.
+// It is caller's responsibility to write the new cache to the file.
 func (roster *Roster) UpdatePackageCache(meta *PackageMeta) (*PackageCache, error) {
-	cachePath := filepath.Join(roster.metaDir, string(meta.rosterName), ".cache", meta.pkgName, "cache.yml")
 	// if this is the first time to load the package cache,
 	// it will receive the error of "file not found".
 	cache := &PackageCache{
@@ -155,8 +161,6 @@ func (roster *Roster) UpdatePackageCache(meta *PackageMeta) (*PackageCache, erro
 		})
 		cache.Url = buff.String()
 	}
-
-	err = WritePackageCacheFile(cachePath, cache)
 	return cache, err
 }
 

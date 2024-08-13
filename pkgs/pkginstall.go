@@ -51,7 +51,7 @@ func (r *Roster) install0(name string, output io.Writer, env []string) error {
 	if err != nil {
 		return err
 	}
-	cache, err := r.UpdatePackageCache(meta)
+	cache, err := r.LoadPackageCache(name)
 	if err != nil {
 		return err
 	}
