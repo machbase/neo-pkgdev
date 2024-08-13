@@ -64,6 +64,9 @@ func (r *Roster) SearchPackage(name string, possibles int) (*PackageSearchResult
 	// search similar package names
 	candidates := []*PackageSearch{}
 	r.WalkPackageCache(func(nm string) bool {
+		if ret.ExactMatch != nil && ret.ExactMatch.Name == nm {
+			return true
+		}
 		score := CompareTwoStrings(strings.ToLower(nm), name)
 		if score > 0.1 {
 			candidates = append(candidates, &PackageSearch{Name: nm, Score: score})
