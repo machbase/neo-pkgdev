@@ -5,10 +5,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"gopkg.in/yaml.v3"
 )
@@ -286,6 +288,7 @@ func (r *Roster) PushCache(rosterName RosterName, rosterRepoUrl string) error {
 	repoPath := filepath.Join(r.metaDir, string(rosterName))
 	repo, err := git.PlainOpen(repoPath)
 	if err != nil {
+		fmt.Printf("PlainOpen %T error:%s\n", err, err)
 		return err
 	}
 
@@ -299,20 +302,33 @@ func (r *Roster) PushCache(rosterName RosterName, rosterRepoUrl string) error {
 		return nil
 	}
 	w.AddWithOptions(&git.AddOptions{All: true, Glob: ".cache/*"})
-	w.Commit("rebuild-cache", &git.CommitOptions{})
-	token := os.Getenv("GITHUB_TOKEN")
-	err = repo.Push(&git.PushOptions{
-		RemoteName: string(git.DefaultRemoteName),
-		RefSpecs: []config.RefSpec{
-			config.RefSpec("refs/heads/main:refs/heads/main"),
-		},
-		Auth: &http.BasicAuth{
-			Username: "rebuild-cache",
-			Password: token,
+	hash, err := w.Commit("update cache", &git.CommitOptions{
+		Author: &object.Signature{
+			Name:  "rebuild-cache",
+			Email: "noreply@machbase.com",
+			When:  time.Now(),
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("pull error: %w", err)
+		return err
 	}
+	fmt.Println("commit roster", rosterName, "hash", hash)
+
+	token := os.Getenv("GITHUB_TOKEN")
+	err = repo.Push(&git.PushOptions{
+		RemoteName: string(git.DefaultRemoteName),
+		Auth: &http.BasicAuth{
+			Username: "machbase",
+			Password: token,
+		},
+		Progress: os.Stdout,
+	})
+	if err != nil {
+		fmt.Println("push roster", rosterName, "error", err)
+		return fmt.Errorf("push error: %w", err)
+	} else {
+		fmt.Println("push roster", rosterName, "done")
+	}
+	time.Sleep(3 * time.Second)
 	return nil
 }
