@@ -16,14 +16,17 @@ import (
 )
 
 type PackageMeta struct {
-	Distributable   Distributable    `yaml:"distributable" json:"distributable"`
-	Description     string           `yaml:"description" json:"description"`
-	Platforms       []string         `yaml:"platforms" json:"platforms"`
-	BuildRecipe     BuildRecipe      `yaml:"build" json:"build"`
-	Provides        []string         `yaml:"provides" json:"provides"`
-	TestRecipe      *TestRecipe      `yaml:"test,omitempty" json:"test,omitempty"`
-	InstallRecipe   *InstallRecipe   `yaml:"install,omitempty" json:"install,omitempty"`
-	UninstallRecipe *UninstallRecipe `yaml:"uninstall,omitempty" json:"uninstall,omitempty"`
+	Distributable      Distributable    `yaml:"distributable" json:"distributable"`
+	Description        string           `yaml:"description" json:"description"`
+	Platforms          []string         `yaml:"platforms" json:"platforms"`
+	BuildRecipe        BuildRecipe      `yaml:"build" json:"build"`
+	Provides           []string         `yaml:"provides" json:"provides"`
+	TestRecipe         *TestRecipe      `yaml:"test,omitempty" json:"test,omitempty"`
+	InstallRecipe      *InstallRecipe   `yaml:"install,omitempty" json:"install,omitempty"`
+	UninstallRecipe    *UninstallRecipe `yaml:"uninstall,omitempty" json:"uninstall,omitempty"`
+	TestRecipeWin      *TestRecipe      `yaml:"test_windows,omitempty" json:"test_windows,omitempty"`
+	InstallRecipeWin   *InstallRecipe   `yaml:"install_windows,omitempty" json:"install_windows,omitempty"`
+	UninstallRecipeWin *UninstallRecipe `yaml:"uninstall_windows,omitempty" json:"uninstall_windows,omitempty"`
 
 	rosterName RosterName `json:"-"`
 	pkgName    string     `json:"-"`

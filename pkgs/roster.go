@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 )
 
 type RosterName string
@@ -131,7 +132,9 @@ func MakeScriptFile(script []string, destDir string, filename string) (string, e
 		return "", err
 	}
 	defer f.Close()
-	fmt.Fprintln(f, "set -e")
+	if runtime.GOOS != "windows" {
+		fmt.Fprintln(f, "set -e")
+	}
 	for _, line := range script {
 		fmt.Fprintln(f, line)
 	}

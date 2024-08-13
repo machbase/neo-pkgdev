@@ -22,7 +22,26 @@ func (r *Roster) Uninstall(name string, output io.Writer, env []string) error {
 
 	if meta.UninstallRecipe != nil {
 		if runtime.GOOS == "windows" {
-			// TODO: implement uninstall script for windows
+			recipe := meta.UninstallRecipe
+			if meta.UninstallRecipeWin != nil {
+				recipe = meta.UninstallRecipeWin
+			}
+			if recipe != nil {
+				if sc, err := MakeScriptFile(recipe.Script, inst.Path, "__uninstall__.bat"); err != nil {
+					return err
+				} else {
+					cmd := exec.Command("cmd", "/c", sc)
+					cmd.Dir = inst.Path
+					cmd.Stdout = output
+					cmd.Stderr = output
+					cmd.Env = append(os.Environ(), env...)
+					err = cmd.Run()
+					if err != nil {
+						return err
+					}
+					os.Remove(filepath.Join(inst.Path, "__uninstall__.bat"))
+				}
+			}
 		} else {
 			if sc, err := MakeScriptFile(meta.UninstallRecipe.Script, inst.Path, "__uninstall__.sh"); err != nil {
 				return err

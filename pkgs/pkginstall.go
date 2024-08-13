@@ -160,11 +160,29 @@ func (r *Roster) install0(name string, output io.Writer, env []string) error {
 		return err
 	}
 
-	if meta.InstallRecipe != nil {
-		// TODO: make install recipe to work on windows
-		if runtime.GOOS == "windows" {
-
-		} else {
+	if runtime.GOOS == "windows" {
+		recipe := meta.InstallRecipe
+		if meta.InstallRecipeWin != nil {
+			recipe = meta.InstallRecipeWin
+		}
+		if recipe != nil {
+			if sc, err := MakeScriptFile(recipe.Script, unarchiveDir, "__install__.bat"); err != nil {
+				return err
+			} else {
+				cmd := exec.Command("cmd", "/c", sc)
+				cmd.Dir = currentVerDir
+				cmd.Stdout = output
+				cmd.Stderr = output
+				cmd.Env = append(os.Environ(), env...)
+				err = cmd.Run()
+				if err != nil {
+					return err
+				}
+			}
+			os.Remove(filepath.Join(unarchiveDir, "__install__.bat"))
+		}
+	} else {
+		if meta.InstallRecipe != nil {
 			if sc, err := MakeScriptFile(meta.InstallRecipe.Script, unarchiveDir, "__install__.sh"); err != nil {
 				return err
 			} else {
@@ -181,6 +199,7 @@ func (r *Roster) install0(name string, output io.Writer, env []string) error {
 			os.Remove(filepath.Join(unarchiveDir, "__install__.sh"))
 		}
 	}
+
 	// remove archive file
 	os.Remove(archiveFile)
 	return nil
