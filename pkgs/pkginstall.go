@@ -154,10 +154,14 @@ func (r *Roster) install0(name string, output io.Writer, env []string) error {
 		// remove old version
 		os.RemoveAll(inst.Path)
 	}
+
 	// new symlink
-	err = os.Symlink(unarchiveDir, currentVerDir)
+	// !! windows requires abs path
+	oldName, _ := filepath.Abs(filepath.FromSlash(unarchiveDir))
+	newName, _ := filepath.Abs(filepath.FromSlash(currentVerDir))
+	err = os.Symlink(oldName, newName)
 	if err != nil {
-		return err
+		return fmt.Errorf("symlink %q -> %q: %w", oldName, newName, err)
 	}
 
 	if runtime.GOOS == "windows" {
