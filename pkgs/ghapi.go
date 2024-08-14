@@ -50,19 +50,20 @@ func GithubRepoInfo(client *http.Client, org, repo string) (*GhRepoInfo, error) 
 }
 
 type GhRepoInfo struct {
-	Organization  string     `json:"organization" yaml:"organization"`
-	Repo          string     `json:"repo" yaml:"repo"`
-	Name          string     `json:"name" yaml:"name"`
-	FullName      string     `json:"full_name" yaml:"full_name"`
-	Owner         *GhOwner   `json:"owner" yaml:"owner"`
-	Private       bool       `json:"private" yaml:"private"`
-	Description   string     `json:"description" yaml:"description"`
-	Homepage      string     `json:"homepage" yaml:"homepage"`
-	ForkCount     int        `json:"forks_count" yaml:"forks_count"`
-	Forks         int        `json:"forks" yaml:"forks"`
-	Language      string     `json:"language" yaml:"language"`
-	License       *GhLicense `json:"license" yaml:"license"`
-	DefaultBranch string     `json:"default_branch" yaml:"default_branch"`
+	Organization    string     `json:"organization" yaml:"organization"`
+	Repo            string     `json:"repo" yaml:"repo"`
+	Name            string     `json:"name" yaml:"name"`
+	FullName        string     `json:"full_name" yaml:"full_name"`
+	Owner           *GhOwner   `json:"owner" yaml:"owner"`
+	Private         bool       `json:"private" yaml:"private"`
+	Description     string     `json:"description" yaml:"description"`
+	Homepage        string     `json:"homepage" yaml:"homepage"`
+	ForkCount       int        `json:"forks_count" yaml:"forks_count"`
+	Forks           int        `json:"forks" yaml:"forks"`
+	StargazersCount int        `json:"stargazers_count" yaml:"stargazers_count"`
+	Language        string     `json:"language" yaml:"language"`
+	License         *GhLicense `json:"license" yaml:"license"`
+	DefaultBranch   string     `json:"default_branch" yaml:"default_branch"`
 }
 
 type GhLicense struct {

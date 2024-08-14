@@ -46,9 +46,10 @@ func ExampleGithubRepoInfo() {
 	//   },
 	//   "private": false,
 	//   "description": "neo package web application example",
-	//   "homepage": "",
-	//   "forks_count": 0,
-	//   "forks": 0,
+	//   "homepage": "https://www.machbase.com",
+	//   "forks_count": 1,
+	//   "forks": 1,
+	//   "stargazers_count": 1,
 	//   "language": "TypeScript",
 	//   "license": {
 	//     "key": "apache-2.0",
