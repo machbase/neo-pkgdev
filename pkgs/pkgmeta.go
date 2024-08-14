@@ -90,6 +90,29 @@ func RosterNames(pkgName string) (RosterName, string) {
 	return rosterName, pkgName
 }
 
+type InstalledPackages struct {
+	Installed []string
+}
+
+func (r *Roster) InstalledPackages() (*InstalledPackages, error) {
+	path := filepath.Join(r.distDir)
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+	ret := &InstalledPackages{}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(path, entry.Name(), "current")); err != nil {
+			continue
+		}
+		ret.Installed = append(ret.Installed, entry.Name())
+	}
+	return ret, nil
+}
+
 type FeaturedPackages struct {
 	Featured []string
 }

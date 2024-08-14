@@ -13,6 +13,7 @@ type PackageSearch struct {
 type PackageSearchResult struct {
 	ExactMatch *PackageCache   `json:"exact"`
 	Possibles  []*PackageCache `json:"possibles"`
+	Installed  []*PackageCache `json:"installed,omitempty"`
 	Broken     []string        `json:"broken,omitempty"`
 }
 
@@ -20,11 +21,35 @@ type PackageSearchResult struct {
 func (r *Roster) Search(name string, possible int) (*PackageSearchResult, error) {
 	ret := &PackageSearchResult{}
 	if name == "" {
+		inst, err := r.InstalledPackages()
+		if err != nil {
+			// if update is needed
+			_, err := r.Update()
+			if err != nil {
+				return nil, err
+			}
+			inst, err = r.InstalledPackages()
+			if err != nil {
+				return nil, err
+			}
+		}
+		for _, pkg := range inst.Installed {
+			cache, err := r.LoadPackageCache(pkg)
+			if err != nil {
+				ret.Broken = append(ret.Broken, pkg)
+			} else {
+				ret.Installed = append(ret.Installed, cache)
+			}
+		}
+
 		prj, err := r.FeaturedPackages()
 		if err != nil {
 			return nil, err
 		}
 		for _, pkg := range prj.Featured {
+			if len(inst.Installed) > 0 && slices.Contains(inst.Installed, pkg) {
+				continue
+			}
 			cache, err := r.LoadPackageCache(pkg)
 			if err != nil {
 				ret.Broken = append(ret.Broken, pkg)
@@ -48,6 +73,13 @@ func (r *Roster) Search(name string, possible int) (*PackageSearchResult, error)
 		if inst != nil {
 			ret.ExactMatch.InstalledVersion = inst.Version
 			ret.ExactMatch.InstalledPath = inst.Path
+		}
+	}
+	for _, s := range ret.Installed {
+		inst, _ := r.InstalledVersion(s.Name)
+		if inst != nil {
+			s.InstalledVersion = inst.Version
+			s.InstalledPath = inst.Path
 		}
 	}
 	for _, s := range ret.Possibles {
