@@ -34,8 +34,8 @@ func StripComponents(p string, stripComponents int) string {
 	if stripComponents == 0 {
 		return filepath.FromSlash(p)
 	}
+	p = strings.TrimPrefix(p, "/")
 	for i := 0; i < stripComponents; i++ {
-		p = p[strings.Index(p, "/")+1:]
 		if j := strings.Index(p, "/"); j != -1 {
 			p = p[j+1:]
 		}
@@ -75,6 +75,7 @@ func untar(r io.Reader, dir string, stripComponents int) (err error) {
 		}
 		rel := StripComponents(f.Name, stripComponents)
 		abs := filepath.Join(dir, rel)
+		fmt.Println("===>", f.Name, "=>", rel, "=>", abs)
 
 		mode := f.FileInfo().Mode()
 		switch f.Typeflag {
