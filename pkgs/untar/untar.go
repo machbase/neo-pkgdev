@@ -75,8 +75,6 @@ func untar(r io.Reader, dir string, stripComponents int) (err error) {
 		}
 		rel := StripComponents(f.Name, stripComponents)
 		abs := filepath.Join(dir, rel)
-		fmt.Println("===>", f.Name, "=>", rel, "=>", abs)
-
 		mode := f.FileInfo().Mode()
 		switch f.Typeflag {
 		case tar.TypeReg:
