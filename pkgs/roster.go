@@ -18,6 +18,7 @@ var ROSTER_REPOS = map[RosterName]string{
 type Roster struct {
 	metaDir string
 	distDir string
+	log     Logger
 }
 
 type RosterOption func(*Roster)
@@ -38,6 +39,9 @@ func NewRoster(baseDir string, opts ...RosterOption) (*Roster, error) {
 	for _, opt := range opts {
 		opt(ret)
 	}
+	if ret.log == nil {
+		ret.log = NewLogger(LOG_NONE)
+	}
 	for _, dir := range []string{metaDir, distDir} {
 		if _, err := os.Stat(dir); err != nil {
 			if err := os.MkdirAll(dir, 0755); err != nil {
@@ -46,6 +50,12 @@ func NewRoster(baseDir string, opts ...RosterOption) (*Roster, error) {
 		}
 	}
 	return ret, nil
+}
+
+func WithLogger(logger Logger) RosterOption {
+	return func(r *Roster) {
+		r.log = logger
+	}
 }
 
 type Updates struct {

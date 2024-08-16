@@ -36,6 +36,7 @@ func NewCmd() *cobra.Command {
 		RunE:  doSearch,
 	}
 	searchCmd.Args = cobra.ExactArgs(1)
+	searchCmd.PersistentFlags().String("log-level", "none", "`[debug,info,warn,error,none]` log level, default is none")
 	searchCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
 	searchCmd.MarkPersistentFlagRequired("dir")
 
@@ -44,6 +45,7 @@ func NewCmd() *cobra.Command {
 		Short: "Update a package roster",
 		RunE:  doUpdate,
 	}
+	updateCmd.PersistentFlags().String("log-level", "none", "`[debug,info,warn,error,none]` log level, default is none")
 	updateCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
 	updateCmd.MarkPersistentFlagRequired("dir")
 
@@ -53,6 +55,7 @@ func NewCmd() *cobra.Command {
 		RunE:  doInstall,
 	}
 	installCmd.Args = cobra.MinimumNArgs(1)
+	installCmd.PersistentFlags().String("log-level", "none", "`[debug,info,warn,error,none]` log level, default is none")
 	installCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
 	installCmd.MarkPersistentFlagRequired("dir")
 
@@ -62,6 +65,7 @@ func NewCmd() *cobra.Command {
 		RunE:  doUninstall,
 	}
 	uninstallCmd.Args = cobra.ExactArgs(1)
+	uninstallCmd.PersistentFlags().String("log-level", "none", "`[debug,info,warn,error,none]` log level, default is none")
 	uninstallCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
 	uninstallCmd.MarkPersistentFlagRequired("dir")
 
@@ -92,6 +96,7 @@ func NewCmd() *cobra.Command {
 		Short: "Rebuild planning to build packages",
 		RunE:  doRebuildPlan,
 	}
+	rebuildPlanCmd.PersistentFlags().String("log-level", "none", "`[debug,info,warn,error,none]` log level, default is none")
 	rebuildPlanCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
 	rebuildPlanCmd.MarkPersistentFlagRequired("dir")
 
@@ -100,6 +105,7 @@ func NewCmd() *cobra.Command {
 		Short: "Rebuild cache",
 		RunE:  doRebuildCache,
 	}
+	rebuildCacheCmd.PersistentFlags().String("log-level", "none", "`[debug,info,warn,error,none]` log level, default is none")
 	rebuildCacheCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
 	rebuildCacheCmd.MarkPersistentFlagRequired("dir")
 
@@ -122,7 +128,8 @@ func doSearch(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	roster, err := pkgs.NewRoster(baseDir)
+	logLevel, _ := cmd.Flags().GetString("log-level")
+	roster, err := pkgs.NewRoster(baseDir, pkgs.WithLogger(pkgs.NewLogger(pkgs.ParseLogLevel(logLevel))))
 	if err != nil {
 		return err
 	}
@@ -172,7 +179,8 @@ func doUpdate(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	roster, err := pkgs.NewRoster(baseDir)
+	logLevel, _ := cmd.Flags().GetString("log-level")
+	roster, err := pkgs.NewRoster(baseDir, pkgs.WithLogger(pkgs.NewLogger(pkgs.ParseLogLevel(logLevel))))
 	if err != nil {
 		return err
 	}
@@ -198,7 +206,8 @@ func doInstall(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	roster, err := pkgs.NewRoster(baseDir)
+	logLevel, _ := cmd.Flags().GetString("log-level")
+	roster, err := pkgs.NewRoster(baseDir, pkgs.WithLogger(pkgs.NewLogger(pkgs.ParseLogLevel(logLevel))))
 	if err != nil {
 		return err
 	}
@@ -217,7 +226,8 @@ func doUninstall(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	roster, err := pkgs.NewRoster(baseDir)
+	logLevel, _ := cmd.Flags().GetString("log-level")
+	roster, err := pkgs.NewRoster(baseDir, pkgs.WithLogger(pkgs.NewLogger(pkgs.ParseLogLevel(logLevel))))
 	if err != nil {
 		return err
 	}
@@ -235,8 +245,8 @@ func doRebuildCache(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-
-	roster, err := pkgs.NewRoster(baseDir)
+	logLevel, _ := cmd.Flags().GetString("log-level")
+	roster, err := pkgs.NewRoster(baseDir, pkgs.WithLogger(pkgs.NewLogger(pkgs.ParseLogLevel(logLevel))))
 	if err != nil {
 		return err
 	}
@@ -296,7 +306,8 @@ func doRebuildPlan(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	roster, err := pkgs.NewRoster(baseDir)
+	logLevel, _ := cmd.Flags().GetString("log-level")
+	roster, err := pkgs.NewRoster(baseDir, pkgs.WithLogger(pkgs.NewLogger(pkgs.ParseLogLevel(logLevel))))
 	if err != nil {
 		return err
 	}

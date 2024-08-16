@@ -199,11 +199,12 @@ func (r *Roster) SyncCheck() ([]*SyncCheckStatus, error) {
 		}
 		repo, err := git.PlainOpen(repoPath)
 		if err != nil {
-			fmt.Printf("PlainOpen %T error:%s\n", err, err)
+			r.log.Errorf("PlainOpen %T error:%s", err, err)
 			return nil, err
 		}
 		headRef, err := repo.Head()
 		if err != nil {
+			r.log.Warnf("%s Head error:%s", rosterName, err)
 			ret = append(ret, &SyncCheckStatus{
 				RosterName: string(rosterName),
 				SyncErr:    err,
@@ -216,6 +217,7 @@ func (r *Roster) SyncCheck() ([]*SyncCheckStatus, error) {
 		})
 		remoteRefs, err := remote.List(&git.ListOptions{})
 		if err != nil {
+			r.log.Warnf("%s List error:%s", rosterName, err)
 			ret = append(ret, &SyncCheckStatus{
 				RosterName: string(rosterName),
 				SyncErr:    err,
@@ -241,6 +243,7 @@ func (r *Roster) SyncCheck() ([]*SyncCheckStatus, error) {
 		if headRef.Hash() != remoteRef.Hash() {
 			sc.NeedSync = true
 		}
+		r.log.Warnf("%s need sync:%t local:%s remote:%s", rosterName, sc.NeedSync, headRef.Hash(), remoteRef.Hash())
 		ret = append(ret, sc)
 	}
 	return ret, nil
