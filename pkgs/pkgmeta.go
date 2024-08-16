@@ -243,7 +243,7 @@ func (r *Roster) SyncCheck() ([]*SyncCheckStatus, error) {
 		if headRef.Hash() != remoteRef.Hash() {
 			sc.NeedSync = true
 		}
-		r.log.Warnf("%s need sync:%t local:%s remote:%s", rosterName, sc.NeedSync, headRef.Hash(), remoteRef.Hash())
+		r.log.Debugf("%s need sync:%t local:%s remote:%s", rosterName, sc.NeedSync, headRef.Hash(), remoteRef.Hash())
 		ret = append(ret, sc)
 	}
 	return ret, nil
