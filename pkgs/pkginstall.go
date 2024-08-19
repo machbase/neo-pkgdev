@@ -62,6 +62,7 @@ func (r *Roster) install0(name string, output io.Writer, env []string) error {
 	archiveFile := filepath.Join(thisPkgDir, dist.ArchiveBase)
 	unarchiveDir := filepath.Join(thisPkgDir, dist.UnarchiveDir)
 	currentVerDir := filepath.Join(thisPkgDir, "current")
+	wip := filepath.Join(thisPkgDir, "wip") // work in progress
 
 	if err := os.MkdirAll(unarchiveDir, 0755); err != nil {
 		if !os.IsExist(err) {
@@ -87,6 +88,11 @@ func (r *Roster) install0(name string, output io.Writer, env []string) error {
 			srcUrl = u
 		}
 	}
+
+	os.WriteFile(wip, []byte(dist.Url), 0644)
+	defer func() {
+		os.Remove(wip)
+	}()
 
 	httpClient := &http.Client{
 		Transport: &http.Transport{

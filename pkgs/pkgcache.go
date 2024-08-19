@@ -29,6 +29,7 @@ type PackageCache struct {
 	// this field is not saved in cache file, but includes in json api response
 	InstalledVersion string `yaml:"-" json:"installed_version"`
 	InstalledPath    string `yaml:"-" json:"installed_path"`
+	WorkInProgress   bool   `yaml:"-" json:"work_in_progress"`
 }
 
 func (cache *PackageCache) RemoteDistribution() (*PackageDistribution, error) {
@@ -59,10 +60,11 @@ func (cache *PackageCache) RemoteDistribution() (*PackageDistribution, error) {
 }
 
 type InstalledVersion struct {
-	Name        string `yaml:"name" json:"name"`
-	Version     string `yaml:"version" json:"version"`
-	Path        string `yaml:"path" json:"path"`
-	CurrentPath string `yaml:"current" json:"current"`
+	Name           string `yaml:"name" json:"name"`
+	Version        string `yaml:"version" json:"version"`
+	Path           string `yaml:"path" json:"path"`
+	CurrentPath    string `yaml:"current" json:"current"`
+	WorkInProgress bool   `yaml:"work_in_progress" json:"work_in_progress"`
 }
 
 func (roster *Roster) InstalledVersion(pkgName string) (*InstalledVersion, error) {
@@ -73,10 +75,15 @@ func (roster *Roster) InstalledVersion(pkgName string) (*InstalledVersion, error
 	} else {
 		thisPkgDir = filepath.Join(roster.distDir, string(rosterName), name)
 	}
+	wip := false
+	if _, err := os.Stat(filepath.Join(thisPkgDir, "wip")); err == nil {
+		wip = true
+	}
 	currentVerDir := filepath.Join(thisPkgDir, "current")
 	if _, err := os.Stat(currentVerDir); err == nil {
 		ret := &InstalledVersion{
-			Name: pkgName,
+			Name:           pkgName,
+			WorkInProgress: wip,
 		}
 		ret.CurrentPath = currentVerDir
 		current, err := os.Readlink(currentVerDir)
