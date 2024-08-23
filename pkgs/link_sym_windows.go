@@ -15,7 +15,7 @@ func Readlink(name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if ret := strings.TrimSpace(string(content)); ret != "" {
+	if ret := strings.TrimSpace(string(content)); ret == "" {
 		return "", errors.New("not a symlink")
 	} else {
 		return ret, nil

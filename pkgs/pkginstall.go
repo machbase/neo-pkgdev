@@ -144,10 +144,11 @@ func (r *Roster) install0(name string, output io.Writer, env []string) error {
 		if err != nil {
 			return err
 		}
-		defer fd.Close()
 		if err := untar.Untar(fd, unarchiveDir, dist.StripComponents); err != nil {
+			fd.Close()
 			return err
 		}
+		fd.Close()
 	}
 	inst, err := r.InstalledVersion(name)
 	if _, err := os.Stat(currentVerDir); err == nil {
@@ -177,6 +178,7 @@ func (r *Roster) install0(name string, output io.Writer, env []string) error {
 		}
 		if recipe != nil {
 			if sc, err := MakeScriptFile(recipe.Script, unarchiveDir, "__install__.bat"); err != nil {
+				r.log.Errorf("make script file: %v", err)
 				return err
 			} else {
 				cmd := exec.Command("cmd", "/c", sc)
@@ -186,6 +188,7 @@ func (r *Roster) install0(name string, output io.Writer, env []string) error {
 				cmd.Env = append(os.Environ(), env...)
 				err = cmd.Run()
 				if err != nil {
+					r.log.Warnf("running install script %q: %v", sc, err)
 					return err
 				}
 			}
@@ -211,6 +214,9 @@ func (r *Roster) install0(name string, output io.Writer, env []string) error {
 	}
 
 	// remove archive file
-	os.Remove(archiveFile)
+	err = os.Remove(archiveFile)
+	if err != nil {
+		r.log.Errorf("cleaning download file %q: %v", archiveFile, err)
+	}
 	return nil
 }
