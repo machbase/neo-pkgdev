@@ -165,7 +165,7 @@ func (r *Roster) install0(name string, output io.Writer, env []string) error {
 	// !! windows requires abs path
 	oldName, _ := filepath.Abs(filepath.FromSlash(unarchiveDir))
 	newName, _ := filepath.Abs(filepath.FromSlash(currentVerDir))
-	err = os.Symlink(oldName, newName)
+	err = Symlink(oldName, newName)
 	if err != nil {
 		return fmt.Errorf("symlink %q -> %q: %w", oldName, newName, err)
 	}

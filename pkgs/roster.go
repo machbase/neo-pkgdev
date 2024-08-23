@@ -16,9 +16,10 @@ var ROSTER_REPOS = map[RosterName]string{
 }
 
 type Roster struct {
-	metaDir string
-	distDir string
-	log     Logger
+	metaDir             string
+	distDir             string
+	log                 Logger
+	syncWhenInitialized bool
 }
 
 type RosterOption func(*Roster)
@@ -42,11 +43,19 @@ func NewRoster(baseDir string, opts ...RosterOption) (*Roster, error) {
 	if ret.log == nil {
 		ret.log = NewLogger(LOG_NONE)
 	}
+	initialized := false
 	for _, dir := range []string{metaDir, distDir} {
 		if _, err := os.Stat(dir); err != nil {
 			if err := os.MkdirAll(dir, 0755); err != nil {
 				return nil, err
 			}
+			initialized = true
+		}
+	}
+	if initialized && ret.syncWhenInitialized {
+		if err := ret.Sync(ROSTER_CENTRAL, ROSTER_REPOS[ROSTER_CENTRAL]); err != nil {
+			// keep going, we can not stop if the sync fails by some reason.
+			ret.log.Errorf("Sync error: %s roster %s", ROSTER_CENTRAL, err)
 		}
 	}
 	return ret, nil
@@ -55,6 +64,12 @@ func NewRoster(baseDir string, opts ...RosterOption) (*Roster, error) {
 func WithLogger(logger Logger) RosterOption {
 	return func(r *Roster) {
 		r.log = logger
+	}
+}
+
+func WithSyncWhenInitialized(flag bool) RosterOption {
+	return func(r *Roster) {
+		r.syncWhenInitialized = flag
 	}
 }
 

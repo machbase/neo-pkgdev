@@ -86,7 +86,7 @@ func (roster *Roster) InstalledVersion(pkgName string) (*InstalledVersion, error
 			WorkInProgress: wip,
 		}
 		ret.CurrentPath = currentVerDir
-		current, err := os.Readlink(currentVerDir)
+		current, err := Readlink(currentVerDir)
 		if err != nil {
 			return nil, fmt.Errorf("package current link not found")
 		}
