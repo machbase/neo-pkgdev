@@ -180,7 +180,7 @@ func (r *Roster) install0(name string, output io.Writer, env []string) error {
 				return err
 			} else {
 				cmd := exec.Command("cmd", "/c", sc)
-				cmd.Dir = currentVerDir
+				cmd.Dir = unarchiveDir
 				cmd.Stdout = output
 				cmd.Stderr = output
 				cmd.Env = append(os.Environ(), env...)
@@ -197,7 +197,7 @@ func (r *Roster) install0(name string, output io.Writer, env []string) error {
 				return err
 			} else {
 				cmd := exec.Command("sh", "-c", sc)
-				cmd.Dir = currentVerDir
+				cmd.Dir = unarchiveDir
 				cmd.Stdout = output
 				cmd.Stderr = output
 				cmd.Env = append(os.Environ(), env...)
