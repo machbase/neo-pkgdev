@@ -73,6 +73,8 @@ func (r *Roster) Search(name string, possible int) (*PackageSearchResult, error)
 		if inst != nil {
 			ret.ExactMatch.InstalledVersion = inst.Version
 			ret.ExactMatch.InstalledPath = inst.Path
+			ret.ExactMatch.InstalledBackend = inst.HasBackend
+			ret.ExactMatch.InstalledFrontend = inst.HasFrontend
 			ret.ExactMatch.WorkInProgress = inst.WorkInProgress
 		}
 	}
@@ -84,6 +86,8 @@ func (r *Roster) Search(name string, possible int) (*PackageSearchResult, error)
 		if inst != nil {
 			s.InstalledVersion = inst.Version
 			s.InstalledPath = inst.Path
+			s.InstalledBackend = inst.HasBackend
+			s.InstalledFrontend = inst.HasFrontend
 			s.WorkInProgress = inst.WorkInProgress
 		}
 	}

@@ -27,9 +27,11 @@ type PackageCache struct {
 	StripComponents   int         `yaml:"strip_components" json:"strip_components"`
 	rosterName        RosterName  `yaml:"-" json:"-"`
 	// this field is not saved in cache file, but includes in json api response
-	InstalledVersion string `yaml:"-" json:"installed_version"`
-	InstalledPath    string `yaml:"-" json:"installed_path"`
-	WorkInProgress   bool   `yaml:"-" json:"work_in_progress"`
+	InstalledVersion  string `yaml:"-" json:"installed_version"`
+	InstalledPath     string `yaml:"-" json:"installed_path"`
+	InstalledFrontend bool   `yaml:"-" json:"installed_frontend"`
+	InstalledBackend  bool   `yaml:"-" json:"installed_backend"`
+	WorkInProgress    bool   `yaml:"-" json:"work_in_progress"`
 }
 
 func (cache *PackageCache) RemoteDistribution() (*PackageDistribution, error) {
@@ -64,6 +66,8 @@ type InstalledVersion struct {
 	Version        string `yaml:"version" json:"version"`
 	Path           string `yaml:"path" json:"path"`
 	CurrentPath    string `yaml:"current" json:"current"`
+	HasBackend     bool   `yaml:"has_backend" json:"has_backend"`
+	HasFrontend    bool   `yaml:"has_frontend" json:"has_frontend"`
 	WorkInProgress bool   `yaml:"work_in_progress" json:"work_in_progress"`
 }
 
@@ -93,6 +97,12 @@ func (roster *Roster) InstalledVersion(pkgName string) (*InstalledVersion, error
 		linkName := filepath.Base(current)
 		ret.Version = linkName
 		ret.Path = filepath.Join(thisPkgDir, linkName)
+		if _, err := os.Stat(filepath.Join(ret.Path, ".backend.yml")); err == nil {
+			ret.HasBackend = true
+		}
+		if _, err := os.Stat(filepath.Join(ret.Path, "index.html")); err == nil {
+			ret.HasFrontend = true
+		}
 		return ret, nil
 	} else {
 		return nil, fmt.Errorf("package not installed")
