@@ -1,6 +1,7 @@
 package pkgs
 
 import (
+	"runtime"
 	"slices"
 	"strings"
 )
@@ -38,6 +39,9 @@ func (r *Roster) Search(name string, possible int) (*PackageSearchResult, error)
 			if err != nil {
 				ret.Broken = append(ret.Broken, pkg)
 			} else {
+				if !cache.Support(runtime.GOOS, runtime.GOARCH) {
+					continue
+				}
 				ret.Installed = append(ret.Installed, cache)
 			}
 		}
@@ -54,6 +58,9 @@ func (r *Roster) Search(name string, possible int) (*PackageSearchResult, error)
 			if err != nil {
 				ret.Broken = append(ret.Broken, pkg)
 			} else {
+				if !cache.Support(runtime.GOOS, runtime.GOARCH) {
+					continue
+				}
 				ret.Possibles = append(ret.Possibles, cache)
 			}
 			if possible > 0 && len(ret.Possibles) >= possible {
@@ -122,7 +129,9 @@ func (r *Roster) SearchPackage(name string, possibles int) (*PackageSearchResult
 		if err != nil {
 			return nil, err
 		}
-		ret.ExactMatch = cache
+		if cache.Support(runtime.GOOS, runtime.GOARCH) {
+			ret.ExactMatch = cache
+		}
 	}
 	if possibles == 0 {
 		return ret, nil
@@ -148,15 +157,18 @@ func (r *Roster) SearchPackage(name string, possibles int) (*PackageSearchResult
 		}
 		return 0
 	})
-	if len(candidates) > possibles {
-		candidates = candidates[:possibles]
-	}
 	for _, c := range candidates {
 		cache, err := r.LoadPackageCache(c.Name)
 		if err != nil {
 			continue
 		}
+		if !cache.Support(runtime.GOOS, runtime.GOARCH) {
+			continue
+		}
 		ret.Possibles = append(ret.Possibles, cache)
+		if len(ret.Possibles) >= possibles {
+			break
+		}
 	}
 	return ret, nil
 }

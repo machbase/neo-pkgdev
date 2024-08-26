@@ -25,6 +25,7 @@ type PackageCache struct {
 	PublishedAt       time.Time   `yaml:"published_at" json:"published_at"`
 	Url               string      `yaml:"url,omitempty" json:"url,omitempty"`
 	StripComponents   int         `yaml:"strip_components" json:"strip_components"`
+	Platforms         []string    `yaml:"platforms" json:"platforms"`
 	rosterName        RosterName  `yaml:"-" json:"-"`
 	// this field is not saved in cache file, but includes in json api response
 	InstalledVersion  string `yaml:"-" json:"installed_version"`
@@ -34,29 +35,71 @@ type PackageCache struct {
 	WorkInProgress    bool   `yaml:"-" json:"work_in_progress"`
 }
 
-func (cache *PackageCache) RemoteDistribution() (*PackageDistribution, error) {
-	ret := &PackageDistribution{Name: cache.Name, StripComponents: cache.StripComponents, rosterName: cache.rosterName}
-	if cache.Url != "" {
-		// from direct url
-		ret.Url = cache.Url
-		ret.ArchiveBase = filepath.Base(cache.Url)
-		ret.ArchiveExt = filepath.Ext(ret.ArchiveBase)
-		ret.UnarchiveDir = strings.TrimSuffix(ret.ArchiveBase, ret.ArchiveExt)
-		ret.ArchiveSize = cache.LatestReleaseSize
+func (cache *PackageCache) Support(platformOS string, platformArch string) bool {
+	if len(cache.Platforms) == 0 {
+		return true
+	}
+	demand := fmt.Sprintf("%s/%s", platformOS, platformArch)
+	for _, platform := range cache.Platforms {
+		if platform == "/" {
+			return true
+		}
+		if platform == demand {
+			return true
+		}
+	}
+	return false
+}
+func (cache *PackageCache) RemoteDistribution() ([]*PackageDistribution, error) {
+	ret := []*PackageDistribution{}
+	platforms := []string{}
+	if len(cache.Platforms) == 0 {
+		// no platforms specified, use default
+		platforms = append(platforms, "/")
 	} else {
-		// from s3
-		releaseFilename := cache.LatestVersion
-		ret.ArchiveBase = fmt.Sprintf("%s-%s.tar.gz", cache.Github.Repo, releaseFilename)
-		ret.ArchiveExt = ".tar.gz"
-		ret.UnarchiveDir = releaseFilename
-		ret.ArchiveSize = cache.LatestReleaseSize
+		platforms = cache.Platforms
+	}
+	for _, platform := range platforms {
+		platformOS := ""
+		platformArch := ""
+		osArch := strings.SplitN(platform, "/", 2)
+		if len(osArch) != 2 {
+			return nil, fmt.Errorf("invalid platform: %s", platform)
+		} else {
+			platformOS = osArch[0]
+			platformArch = osArch[1]
+		}
 
-		bucket := "p-edge-packages"
-		region := "ap-northeast-2"
-		ret.Url = fmt.Sprintf("https://%s.s3.%s.amazonaws.com/neo-pkg/%s/%s/%s",
-			bucket, region,
-			cache.Github.Organization, cache.Github.Repo, ret.ArchiveBase)
+		pd := &PackageDistribution{Name: cache.Name, StripComponents: cache.StripComponents, rosterName: cache.rosterName}
+		pd.PlatformOS = platformOS
+		pd.PlatformArch = platformArch
+		if cache.Url != "" {
+			// from direct url
+			pd.Url = cache.Url
+			pd.ArchiveBase = filepath.Base(cache.Url)
+			pd.ArchiveExt = filepath.Ext(pd.ArchiveBase)
+			pd.UnarchiveDir = strings.TrimSuffix(pd.ArchiveBase, pd.ArchiveExt)
+			pd.ArchiveSize = cache.LatestReleaseSize
+		} else {
+			// from s3
+			releaseFilename := cache.LatestVersion
+			if platformOS != "" && platformArch != "" {
+				pd.ArchiveBase = fmt.Sprintf("%s-%s-%s-%s.tar.gz", cache.Github.Repo, releaseFilename, platformOS, platformArch)
+			} else {
+				pd.ArchiveBase = fmt.Sprintf("%s-%s.tar.gz", cache.Github.Repo, releaseFilename)
+			}
+			pd.ArchiveExt = ".tar.gz"
+			pd.UnarchiveDir = releaseFilename
+			pd.ArchiveSize = cache.LatestReleaseSize
 
+			bucket := "p-edge-packages"
+			region := "ap-northeast-2"
+			pd.Url = fmt.Sprintf("https://%s.s3.%s.amazonaws.com/neo-pkg/%s/%s/%s",
+				bucket, region,
+				cache.Github.Organization, cache.Github.Repo, pd.ArchiveBase)
+
+		}
+		ret = append(ret, pd)
 	}
 	return ret, nil
 }
@@ -121,6 +164,7 @@ func (roster *Roster) UpdatePackageCache(meta *PackageMeta) (*PackageCache, erro
 	// it will receive the error of "file not found".
 	cache := &PackageCache{
 		Name:       meta.pkgName,
+		Platforms:  meta.Platforms,
 		rosterName: meta.rosterName,
 	}
 	org, repo, err := GithubSplitPath(meta.Distributable.Github)
@@ -181,20 +225,26 @@ func (roster *Roster) UpdatePackageCache(meta *PackageMeta) (*PackageCache, erro
 	return cache, err
 }
 
-func (roster *Roster) SavePackageDistributionAvailability(pda *PackageDistributionAvailability) error {
-	cacheDir := filepath.Join(roster.metaDir, string(pda.rosterName), ".cache", pda.Name)
-	if _, err := os.Stat(cacheDir); err != nil {
-		if os.IsNotExist(err) {
-			if err := os.MkdirAll(cacheDir, 0755); err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
-	}
-	cacheFile := filepath.Join(cacheDir, fmt.Sprintf("%s.yml", pda.Version))
-	return WritePackageDistributionAvailability(cacheFile, pda)
-}
+// func (roster *Roster) SavePackageDistributionAvailability(pda []*PackageDistributionAvailability) error {
+// 	if len(pda) == 0 {
+// 		return nil
+// 	}
+// 	rosterName := string(pda[0].rosterName)
+// 	pkgName := pda[0].Name
+// 	pkgVersion := pda[0].Version
+// 	cacheDir := filepath.Join(roster.metaDir, rosterName, ".cache", pkgName)
+// 	if _, err := os.Stat(cacheDir); err != nil {
+// 		if os.IsNotExist(err) {
+// 			if err := os.MkdirAll(cacheDir, 0755); err != nil {
+// 				return err
+// 			}
+// 		} else {
+// 			return err
+// 		}
+// 	}
+// 	cacheFile := filepath.Join(cacheDir, fmt.Sprintf("%s.yml", pkgVersion))
+// 	return WritePackageDistributionAvailability(cacheFile, pda)
+// }
 
 func (roster *Roster) LoadPackageCache(pkgName string) (*PackageCache, error) {
 	var rosterName = ROSTER_CENTRAL
@@ -234,13 +284,22 @@ func WritePackageCacheFile(path string, cache *PackageCache) error {
 	return os.WriteFile(path, content, 0644)
 }
 
-func WritePackageDistributionAvailability(path string, pda *PackageDistributionAvailability) error {
+func WritePackageDistributionAvailability(path string, pda []*PackageDistributionAvailability) error {
+	dir := filepath.Dir(path)
+	if _, err := os.Stat(dir); err != nil {
+		if os.IsNotExist(err) {
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-
 	enc := yaml.NewEncoder(f)
 	enc.SetIndent(2)
 	if err := enc.Encode(pda); err != nil {
@@ -251,6 +310,8 @@ func WritePackageDistributionAvailability(path string, pda *PackageDistributionA
 
 type PackageDistribution struct {
 	Name            string     `json:"name"`
+	PlatformOS      string     `json:"platform_os"`
+	PlatformArch    string     `json:"platform_arch"`
 	Url             string     `json:"url"`
 	ArchiveBase     string     `json:"archive_base"`
 	ArchiveExt      string     `json:"archive_ext"`
@@ -267,11 +328,13 @@ func (pd *PackageDistribution) CheckAvailability(httpClient *http.Client) (*Pack
 	}
 	rsp.Body.Close()
 	ret := &PackageDistributionAvailability{
-		Name:       pd.Name,
-		Version:    pd.UnarchiveDir,
-		DistUrl:    pd.Url,
-		StatusCode: rsp.StatusCode,
-		rosterName: pd.rosterName,
+		Name:         pd.Name,
+		Version:      pd.UnarchiveDir,
+		PlatformOS:   pd.PlatformOS,
+		PlatformArch: pd.PlatformArch,
+		DistUrl:      pd.Url,
+		StatusCode:   rsp.StatusCode,
+		rosterName:   pd.rosterName,
 	}
 	if rsp.StatusCode == 200 {
 		if cl := rsp.Header.Get("Content-Length"); cl != "" {
@@ -287,6 +350,8 @@ func (pd *PackageDistribution) CheckAvailability(httpClient *http.Client) (*Pack
 type PackageDistributionAvailability struct {
 	Name          string     `yaml:"name"`
 	Version       string     `yaml:"version"`
+	PlatformOS    string     `yaml:"platform_os"`
+	PlatformArch  string     `yaml:"platform_arch"`
 	DistUrl       string     `yaml:"dist_url"`
 	StatusCode    int        `yaml:"status_code"`
 	Available     bool       `yaml:"available"`

@@ -57,7 +57,22 @@ func (r *Roster) install0(name string, output io.Writer, env []string) error {
 	}
 
 	force := true
-	dist, _ := cache.RemoteDistribution()
+	distAvailable, _ := cache.RemoteDistribution()
+	var dist *PackageDistribution
+	for _, d := range distAvailable {
+		if d.PlatformOS == "" && d.PlatformArch == "" {
+			dist = d
+			break
+		}
+		if d.PlatformOS == runtime.GOOS && d.PlatformArch == runtime.GOARCH {
+			dist = d
+			break
+		}
+	}
+	if dist == nil {
+		return fmt.Errorf("no distribution for %s/%s", runtime.GOOS, runtime.GOARCH)
+	}
+
 	thisPkgDir := filepath.Join(r.distDir, cache.Name)
 	archiveFile := filepath.Join(thisPkgDir, dist.ArchiveBase)
 	unarchiveDir := filepath.Join(thisPkgDir, dist.UnarchiveDir)

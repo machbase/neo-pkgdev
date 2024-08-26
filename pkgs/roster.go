@@ -145,8 +145,14 @@ func (r *Roster) LoadPackageMetaRoster(rosterName RosterName, pkgName string) (*
 	return LoadPackageMetaFile(path)
 }
 
-func (r *Roster) WritePackageDistributionAvailability(pda *PackageDistributionAvailability) error {
-	path := filepath.Join(r.metaDir, string(pda.rosterName), ".cache", pda.Name, fmt.Sprintf("%s.yml", pda.Version))
+func (r *Roster) WritePackageDistributionAvailability(pda []*PackageDistributionAvailability) error {
+	if len(pda) == 0 {
+		return nil
+	}
+	rosterName := pda[0].rosterName
+	pkgName := pda[0].Name
+	pkgVersion := pda[0].Version
+	path := filepath.Join(r.metaDir, string(rosterName), ".cache", pkgName, fmt.Sprintf("%s.yml", pkgVersion))
 	return WritePackageDistributionAvailability(path, pda)
 }
 

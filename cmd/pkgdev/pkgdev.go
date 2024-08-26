@@ -270,24 +270,36 @@ func doRebuildCache(cmd *cobra.Command, args []string) error {
 			return
 		}
 		dist, err := cache.RemoteDistribution()
-		if err != nil {
+		if err != nil || len(dist) == 0 {
 			fmt.Println(name, "distribution not found", err.Error())
 			return
 		}
-		avail, err := dist.CheckAvailability(httpClient)
-		if err != nil {
-			fmt.Println(name, "distribution check failed", err.Error())
+		avails := []*pkgs.PackageDistributionAvailability{}
+		for idx, pd := range dist {
+			avail, err := pd.CheckAvailability(httpClient)
+			if err != nil {
+				fmt.Println(name, "distribution check failed", err.Error())
+				continue
+			}
+			if !avail.Available {
+				fmt.Println(name, cache.LatestVersion, "distribution not available")
+				continue
+			}
+			if idx == 0 && avail.ContentLength != cache.LatestReleaseSize {
+				cache.LatestReleaseSize = avail.ContentLength
+			}
+			fmt.Println(name, cache.LatestVersion, avail.DistUrl)
+			avails = append(avails, avail)
+		}
+		if len(avails) == 0 {
+			fmt.Println(name, "distribution not available")
 			return
 		}
-		if !avail.Available {
-			fmt.Println(name, cache.LatestVersion, "distribution not available")
-			return
+		cache.Platforms = []string{}
+		for _, av := range avails {
+			cache.Platforms = append(cache.Platforms, fmt.Sprintf("%s/%s", av.PlatformOS, av.PlatformArch))
 		}
-		if avail.ContentLength != cache.LatestReleaseSize {
-			cache.LatestReleaseSize = avail.ContentLength
-		}
-		fmt.Println(name, cache.LatestVersion, avail.DistUrl)
-		if err := roster.WritePackageDistributionAvailability(avail); err != nil {
+		if err := roster.WritePackageDistributionAvailability(avails); err != nil {
 			fmt.Println(name, "distribution availability write failed", err.Error())
 			return
 		}
@@ -342,18 +354,24 @@ func doRebuildPlan(cmd *cobra.Command, args []string) error {
 			fmt.Println(name, "distribution not found", err.Error())
 			return
 		}
-		avail, err := dist.CheckAvailability(httpClient)
-		if err != nil {
-			fmt.Println(name, "distribution check failed", err.Error())
-			return
+		avails := []*pkgs.PackageDistributionAvailability{}
+		targetAdded := false
+		for _, pd := range dist {
+			avail, err := pd.CheckAvailability(httpClient)
+			if err != nil {
+				fmt.Println(name, "distribution check failed", err.Error())
+				return
+			}
+			avails = append(avails, avail)
+			fmt.Println(avail.String())
+			if !avail.Available && !targetAdded {
+				packageYmlPath := filepath.Join(baseDir, "meta", string(pkgs.ROSTER_CENTRAL), "projects", name, "package.yml")
+				targetPkgs = append(targetPkgs, packageYmlPath)
+				targetAdded = true
+			}
 		}
-		fmt.Println(avail.String())
-
-		roster.WritePackageDistributionAvailability(avail)
-
-		if !avail.Available {
-			packageYmlPath := filepath.Join(baseDir, "meta", string(pkgs.ROSTER_CENTRAL), "projects", name, "package.yml")
-			targetPkgs = append(targetPkgs, packageYmlPath)
+		if len(avails) > 0 {
+			roster.WritePackageDistributionAvailability(avails)
 		}
 		return
 	})
