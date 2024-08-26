@@ -148,7 +148,7 @@ func (roster *Roster) InstalledVersion(pkgName string) (*InstalledVersion, error
 		}
 		return ret, nil
 	} else {
-		return nil, fmt.Errorf("package not installed")
+		return nil, fmt.Errorf("package %q not installed", pkgName)
 	}
 }
 

@@ -87,10 +87,7 @@ func (r *Roster) Search(name string, possible int) (*PackageSearchResult, error)
 	}
 	for _, s := range ret.Installed {
 		inst, err := r.InstalledVersion(s.Name)
-		if err != nil {
-			r.log.Errorf("installed version error: %s", err)
-		}
-		if inst != nil {
+		if err != nil && inst != nil {
 			s.InstalledVersion = inst.Version
 			s.InstalledPath = inst.Path
 			s.InstalledBackend = inst.HasBackend
@@ -100,10 +97,7 @@ func (r *Roster) Search(name string, possible int) (*PackageSearchResult, error)
 	}
 	for _, s := range ret.Possibles {
 		inst, err := r.InstalledVersion(s.Name)
-		if err != nil {
-			r.log.Errorf("installed version error: %s", err)
-		}
-		if inst != nil {
+		if err == nil && inst != nil {
 			s.InstalledVersion = inst.Version
 			s.InstalledPath = inst.Path
 			s.InstalledBackend = inst.HasBackend
