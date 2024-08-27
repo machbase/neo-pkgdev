@@ -24,8 +24,6 @@ type PackageMeta struct {
 	TestRecipe         *TestRecipe      `yaml:"test,omitempty" json:"test,omitempty"`
 	InstallRecipe      *InstallRecipe   `yaml:"install,omitempty" json:"install,omitempty"`
 	UninstallRecipe    *UninstallRecipe `yaml:"uninstall,omitempty" json:"uninstall,omitempty"`
-	TestRecipeWin      *TestRecipe      `yaml:"test_windows,omitempty" json:"test_windows,omitempty"`
-	InstallRecipeWin   *InstallRecipe   `yaml:"install_windows,omitempty" json:"install_windows,omitempty"`
 	UninstallRecipeWin *UninstallRecipe `yaml:"uninstall_windows,omitempty" json:"uninstall_windows,omitempty"`
 
 	rosterName RosterName `json:"-"`
@@ -56,19 +54,37 @@ type Script struct {
 	Platform string `yaml:"on,omitempty"`
 }
 
+func FindScript(scripts []Script, platform string) string {
+	ret := ""
+	if len(scripts) == 1 {
+		ret = scripts[0].Run
+	} else {
+		for _, script := range scripts {
+			if script.Platform == "" {
+				ret = script.Run
+				continue
+			}
+			if script.Platform == platform {
+				return script.Run
+			}
+		}
+	}
+	return ret
+}
+
 type TestRecipe struct {
-	Script []string `yaml:"script"`
-	Env    []string `yaml:"env"`
+	Scripts []Script `yaml:"scripts"`
+	Env     []string `yaml:"env"`
 }
 
 type InstallRecipe struct {
-	Script []string `yaml:"script"`
-	Env    []string `yaml:"env"`
+	Scripts []Script `yaml:"scripts"`
+	Env     []string `yaml:"env"`
 }
 
 type UninstallRecipe struct {
-	Script []string `yaml:"script"`
-	Env    []string `yaml:"env"`
+	Scripts []Script `yaml:"script"`
+	Env     []string `yaml:"env"`
 }
 
 func LoadPackageMetaFile(path string) (*PackageMeta, error) {

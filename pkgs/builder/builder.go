@@ -109,21 +109,8 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 			return err
 		}
 	}
-	var buildRun string
-	if len(meta.BuildRecipe.Scripts) > 1 {
-		for _, script := range meta.BuildRecipe.Scripts {
-			if script.Platform == "" {
-				buildRun = script.Run
-				continue
-			}
-			if script.Platform == runtime.GOOS {
-				buildRun = script.Run
-				break
-			}
-		}
-	} else {
-		buildRun = meta.BuildRecipe.Scripts[0].Run
-	}
+
+	buildRun := pkgs.FindScript(meta.BuildRecipe.Scripts, runtime.GOOS)
 
 	if runtime.GOOS == "windows" {
 		// Windows build script
@@ -161,31 +148,32 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 	}
 	// Test the built files
 	if meta.TestRecipe != nil {
+		testRun := pkgs.FindScript(meta.TestRecipe.Scripts, runtime.GOOS)
+
 		if runtime.GOOS == "windows" {
-			for _, line := range meta.TestRecipe.Script {
-				// Windows test script
-				buildCmd := exec.Command("cmd", "/c", line)
-				buildCmd.Dir = dest
-				buildCmd.Env = append(os.Environ(), meta.BuildRecipe.Env...)
-				buildCmd.Stdout = os.Stdout
-				buildCmd.Stderr = os.Stderr
-				if err := buildCmd.Run(); err != nil {
-					return err
-				}
-			}
-		} else {
 			var testScript string
-			if f, err := pkgs.MakeScriptFile(meta.TestRecipe.Script, dest, "__test__.sh"); err != nil {
+			if f, err := pkgs.MakeScriptFile([]string{testRun}, dest, "__test__.cmd"); err != nil {
 				return err
 			} else {
 				testScript = f
 			}
-			var testCmd *exec.Cmd
-			if runtime.GOOS == "windows" {
-				testCmd = exec.Command("cmd", "/c", testScript)
-			} else {
-				testCmd = exec.Command("sh", "-c", testScript)
+			// Windows test script
+			testCmd := exec.Command("cmd", "/c", testScript)
+			testCmd.Dir = dest
+			testCmd.Env = append(os.Environ(), meta.BuildRecipe.Env...)
+			testCmd.Stdout = os.Stdout
+			testCmd.Stderr = os.Stderr
+			if err := testCmd.Run(); err != nil {
+				return err
 			}
+		} else {
+			var testScript string
+			if f, err := pkgs.MakeScriptFile([]string{testRun}, dest, "__test__.sh"); err != nil {
+				return err
+			} else {
+				testScript = f
+			}
+			testCmd := exec.Command("sh", "-c", testScript)
 			testCmd.Dir = dest
 			testCmd.Env = append(os.Environ(), meta.TestRecipe.Env...)
 			testCmd.Stdout = os.Stdout

@@ -186,32 +186,27 @@ func (r *Roster) install0(name string, output io.Writer, env []string) error {
 		return fmt.Errorf("symlink %q -> %q: %w", oldName, newName, err)
 	}
 
+	installRun := FindScript(meta.InstallRecipe.Scripts, runtime.GOOS)
 	if runtime.GOOS == "windows" {
-		recipe := meta.InstallRecipe
-		if meta.InstallRecipeWin != nil {
-			recipe = meta.InstallRecipeWin
-		}
-		if recipe != nil {
-			if sc, err := MakeScriptFile(recipe.Script, unarchiveDir, "__install__.bat"); err != nil {
-				r.log.Errorf("make script file: %v", err)
+		if sc, err := MakeScriptFile([]string{installRun}, unarchiveDir, "__install__.cmd"); err != nil {
+			r.log.Errorf("make script file: %v", err)
+			return err
+		} else {
+			cmd := exec.Command("cmd", "/c", sc)
+			cmd.Dir = unarchiveDir
+			cmd.Stdout = output
+			cmd.Stderr = output
+			cmd.Env = append(os.Environ(), env...)
+			err = cmd.Run()
+			if err != nil {
+				r.log.Warnf("running install script %q: %v", sc, err)
 				return err
-			} else {
-				cmd := exec.Command("cmd", "/c", sc)
-				cmd.Dir = unarchiveDir
-				cmd.Stdout = output
-				cmd.Stderr = output
-				cmd.Env = append(os.Environ(), env...)
-				err = cmd.Run()
-				if err != nil {
-					r.log.Warnf("running install script %q: %v", sc, err)
-					return err
-				}
 			}
-			os.Remove(filepath.Join(unarchiveDir, "__install__.bat"))
 		}
+		os.Remove(filepath.Join(unarchiveDir, "__install__.cmd"))
 	} else {
 		if meta.InstallRecipe != nil {
-			if sc, err := MakeScriptFile(meta.InstallRecipe.Script, unarchiveDir, "__install__.sh"); err != nil {
+			if sc, err := MakeScriptFile([]string{installRun}, unarchiveDir, "__install__.sh"); err != nil {
 				return err
 			} else {
 				cmd := exec.Command("sh", "-c", sc)

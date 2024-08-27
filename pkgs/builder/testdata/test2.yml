@@ -1,0 +1,44 @@
+
+distributable:
+  github: machbase/machbase
+  strip_components: 1
+
+description: |
+  This is the documents for machbase-neo.
+
+platforms:
+
+build:
+  scripts:
+    - run: |
+        DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y tzdata git-all golang-go
+        wget -O ${TMP}/hugo.deb https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.deb
+        dpkg -i ${TMP}/hugo.deb
+        npm install -g sass
+        hugo --enableGitInfo=false --gc --minify --baseURL "/web/apps/neo-docs/"
+  env:
+    - TMP=/tmp
+    - HUGO_VERSION=0.121.2
+    - HUGO_ENV=production
+
+provides:
+  - public/
+
+test:
+  scripts:
+    - run: |
+        echo "Testing..."
+        ls -l public/
+        echo "Test done."
+
+## Post install process
+install:
+  scripts:
+    - run: |
+        echo "Installing..."
+
+## Pre uninstall process
+uninstall:
+  scripts:
+    - run: |
+        echo "Uninstalling..."

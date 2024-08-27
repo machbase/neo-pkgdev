@@ -14,7 +14,20 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/machbase/neo-pkgdev/pkgs"
 )
+
+func TestLoadMeta(t *testing.T) {
+	for _, path := range []string{"./testdata/test1.yml", "./testdata/test2.yml"} {
+		_, err := pkgs.LoadPackageMetaFile(path)
+		if err != nil {
+			t.Log(path, err.Error())
+			t.Fail()
+			return
+		}
+		t.Log("ok", path)
+	}
+}
 
 func TestDeploy(t *testing.T) {
 	t.Skip("Skip deploy test")
