@@ -275,7 +275,7 @@ func doRebuildCache(cmd *cobra.Command, args []string) error {
 			return
 		}
 		avails := []*pkgs.PackageDistributionAvailability{}
-		for idx, pd := range dist {
+		for _, pd := range dist {
 			avail, err := pd.CheckAvailability(httpClient)
 			if err != nil {
 				fmt.Println(name, "distribution check failed", err.Error())
@@ -284,9 +284,6 @@ func doRebuildCache(cmd *cobra.Command, args []string) error {
 			if !avail.Available {
 				fmt.Println(name, cache.LatestVersion, "distribution not available")
 				continue
-			}
-			if idx == 0 && avail.ContentLength != cache.LatestReleaseSize {
-				cache.LatestReleaseSize = avail.ContentLength
 			}
 			fmt.Println(name, cache.LatestVersion, avail.DistUrl)
 			avails = append(avails, avail)

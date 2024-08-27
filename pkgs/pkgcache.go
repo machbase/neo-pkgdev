@@ -16,18 +16,18 @@ import (
 )
 
 type PackageCache struct {
-	Name              string      `yaml:"name" json:"name"`
-	Github            *GhRepoInfo `yaml:"github" json:"github"`
-	LatestVersion     string      `yaml:"latest_version" json:"latest_version"`
-	LatestRelease     string      `yaml:"latest_release" json:"latest_release"`
-	LatestReleaseTag  string      `yaml:"latest_release_tag" json:"latest_release_tag"`
-	LatestReleaseSize int64       `yaml:"latest_release_size" json:"latest_release_size"`
-	PublishedAt       time.Time   `yaml:"published_at" json:"published_at"`
-	Url               string      `yaml:"url,omitempty" json:"url,omitempty"`
-	StripComponents   int         `yaml:"strip_components" json:"strip_components"`
-	Platforms         []string    `yaml:"platforms" json:"platforms"`
-	rosterName        RosterName  `yaml:"-" json:"-"`
+	Name             string      `yaml:"name" json:"name"`
+	Github           *GhRepoInfo `yaml:"github" json:"github"`
+	LatestVersion    string      `yaml:"latest_version" json:"latest_version"`
+	LatestRelease    string      `yaml:"latest_release" json:"latest_release"`
+	LatestReleaseTag string      `yaml:"latest_release_tag" json:"latest_release_tag"`
+	PublishedAt      time.Time   `yaml:"published_at" json:"published_at"`
+	Url              string      `yaml:"url,omitempty" json:"url,omitempty"`
+	StripComponents  int         `yaml:"strip_components" json:"strip_components"`
+	Platforms        []string    `yaml:"platforms" json:"platforms"`
+	rosterName       RosterName  `yaml:"-" json:"-"`
 	// this field is not saved in cache file, but includes in json api response
+	LatestReleaseSize int64  `yaml:"-" json:"latest_release_size"`
 	InstalledVersion  string `yaml:"-" json:"installed_version"`
 	InstalledPath     string `yaml:"-" json:"installed_path"`
 	InstalledFrontend bool   `yaml:"-" json:"installed_frontend"`
@@ -79,7 +79,6 @@ func (cache *PackageCache) RemoteDistribution() ([]*PackageDistribution, error) 
 			pd.ArchiveBase = filepath.Base(cache.Url)
 			pd.ArchiveExt = filepath.Ext(pd.ArchiveBase)
 			pd.UnarchiveDir = strings.TrimSuffix(pd.ArchiveBase, pd.ArchiveExt)
-			pd.ArchiveSize = cache.LatestReleaseSize
 		} else {
 			// from s3
 			releaseFilename := cache.LatestVersion
@@ -90,7 +89,6 @@ func (cache *PackageCache) RemoteDistribution() ([]*PackageDistribution, error) 
 			}
 			pd.ArchiveExt = ".tar.gz"
 			pd.UnarchiveDir = releaseFilename
-			pd.ArchiveSize = cache.LatestReleaseSize
 
 			bucket := "p-edge-packages"
 			region := "ap-northeast-2"
@@ -225,27 +223,6 @@ func (roster *Roster) UpdatePackageCache(meta *PackageMeta) (*PackageCache, erro
 	return cache, err
 }
 
-// func (roster *Roster) SavePackageDistributionAvailability(pda []*PackageDistributionAvailability) error {
-// 	if len(pda) == 0 {
-// 		return nil
-// 	}
-// 	rosterName := string(pda[0].rosterName)
-// 	pkgName := pda[0].Name
-// 	pkgVersion := pda[0].Version
-// 	cacheDir := filepath.Join(roster.metaDir, rosterName, ".cache", pkgName)
-// 	if _, err := os.Stat(cacheDir); err != nil {
-// 		if os.IsNotExist(err) {
-// 			if err := os.MkdirAll(cacheDir, 0755); err != nil {
-// 				return err
-// 			}
-// 		} else {
-// 			return err
-// 		}
-// 	}
-// 	cacheFile := filepath.Join(cacheDir, fmt.Sprintf("%s.yml", pkgVersion))
-// 	return WritePackageDistributionAvailability(cacheFile, pda)
-// }
-
 func (roster *Roster) LoadPackageCache(pkgName string) (*PackageCache, error) {
 	var rosterName = ROSTER_CENTRAL
 	rosterName, pkgName = RosterNames(pkgName)
@@ -284,6 +261,18 @@ func WritePackageCacheFile(path string, cache *PackageCache) error {
 	return os.WriteFile(path, content, 0644)
 }
 
+func ReadPackageDistributionAvailability(path string) ([]*PackageDistributionAvailability, error) {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	ret := []*PackageDistributionAvailability{}
+	if err := yaml.Unmarshal(content, &ret); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
 func WritePackageDistributionAvailability(path string, pda []*PackageDistributionAvailability) error {
 	dir := filepath.Dir(path)
 	if _, err := os.Stat(dir); err != nil {
@@ -315,7 +304,6 @@ type PackageDistribution struct {
 	Url             string     `json:"url"`
 	ArchiveBase     string     `json:"archive_base"`
 	ArchiveExt      string     `json:"archive_ext"`
-	ArchiveSize     int64      `json:"archive_size"`
 	UnarchiveDir    string     `json:"unarchive_base"`
 	StripComponents int        `json:"strip_components"`
 	rosterName      RosterName `json:"-"`

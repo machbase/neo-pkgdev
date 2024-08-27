@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 type RosterName string
@@ -154,6 +155,17 @@ func (r *Roster) WritePackageDistributionAvailability(pda []*PackageDistribution
 	pkgVersion := pda[0].Version
 	path := filepath.Join(r.metaDir, string(rosterName), ".cache", pkgName, fmt.Sprintf("%s.yml", pkgVersion))
 	return WritePackageDistributionAvailability(path, pda)
+}
+
+func (r *Roster) LoadPackageDistributionAvailability(pkgName, pkgVersion string) ([]*PackageDistributionAvailability, error) {
+	rosterName := string(ROSTER_CENTRAL)
+	if strings.Contains(pkgName, "/") {
+		toks := strings.SplitN(pkgName, "/", 2)
+		rosterName = toks[0]
+		pkgName = toks[1]
+	}
+	path := filepath.Join(r.metaDir, rosterName, ".cache", pkgName, fmt.Sprintf("%s.yml", pkgVersion))
+	return ReadPackageDistributionAvailability(path)
 }
 
 func MakeScriptFile(script []string, destDir string, filename string) (string, error) {

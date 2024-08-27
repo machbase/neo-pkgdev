@@ -9,6 +9,7 @@ import (
 type PackageSearch struct {
 	Name  string
 	Score float32
+	Cache *PackageCache
 }
 
 type PackageSearchResult struct {
@@ -74,38 +75,53 @@ func (r *Roster) Search(name string, possible int) (*PackageSearchResult, error)
 			ret = result
 		}
 	}
-	// check if installed
+	pkgs := []*PackageCache{}
 	if ret.ExactMatch != nil {
-		inst, _ := r.InstalledVersion(ret.ExactMatch.Name)
-		if inst != nil {
-			ret.ExactMatch.InstalledVersion = inst.Version
-			ret.ExactMatch.InstalledPath = inst.Path
-			ret.ExactMatch.InstalledBackend = inst.HasBackend
-			ret.ExactMatch.InstalledFrontend = inst.HasFrontend
-			ret.ExactMatch.WorkInProgress = inst.WorkInProgress
-		}
+		pkgs = append(pkgs, ret.ExactMatch)
 	}
-	for _, s := range ret.Installed {
-		inst, err := r.InstalledVersion(s.Name)
-		if err == nil && inst != nil {
-			s.InstalledVersion = inst.Version
-			s.InstalledPath = inst.Path
-			s.InstalledBackend = inst.HasBackend
-			s.InstalledFrontend = inst.HasFrontend
-			s.WorkInProgress = inst.WorkInProgress
-		}
+	pkgs = append(pkgs, ret.Possibles...)
+	pkgs = append(pkgs, ret.Installed...)
+	// check if installed
+	for _, p := range pkgs {
+		r.CheckInstalledPackage(p)
 	}
-	for _, s := range ret.Possibles {
-		inst, err := r.InstalledVersion(s.Name)
-		if err == nil && inst != nil {
-			s.InstalledVersion = inst.Version
-			s.InstalledPath = inst.Path
-			s.InstalledBackend = inst.HasBackend
-			s.InstalledFrontend = inst.HasFrontend
-			s.WorkInProgress = inst.WorkInProgress
-		}
+	// check if installable
+	for _, p := range pkgs {
+		r.CheckAvailabilityPackage(p)
 	}
 	return ret, nil
+}
+
+func (r *Roster) CheckAvailabilityPackage(cache *PackageCache) error {
+	avails, err := r.LoadPackageDistributionAvailability(cache.Name, cache.LatestVersion)
+	if err != nil {
+		return err
+	}
+	for _, a := range avails {
+		if a.PlatformOS == "" && a.PlatformArch == "" {
+			cache.LatestReleaseSize = a.ContentLength
+			break
+		} else if a.PlatformOS == runtime.GOOS && a.PlatformArch == runtime.GOARCH {
+			cache.LatestReleaseSize = a.ContentLength
+			break
+		}
+	}
+	return nil
+}
+
+func (r *Roster) CheckInstalledPackage(cache *PackageCache) error {
+	inst, err := r.InstalledVersion(cache.Name)
+	if err != nil {
+		return err
+	}
+	if inst != nil {
+		cache.InstalledVersion = inst.Version
+		cache.InstalledPath = inst.Path
+		cache.InstalledBackend = inst.HasBackend
+		cache.InstalledFrontend = inst.HasFrontend
+		cache.WorkInProgress = inst.WorkInProgress
+	}
+	return nil
 }
 
 // Search package info by name, if it finds the package, return the package info.
@@ -138,7 +154,11 @@ func (r *Roster) SearchPackage(name string, possibles int) (*PackageSearchResult
 		}
 		score := CompareTwoStrings(strings.ToLower(nm), name)
 		if score > 0.1 {
-			candidates = append(candidates, &PackageSearch{Name: nm, Score: score})
+			cache, err := r.LoadPackageCache(nm)
+			if err != nil || !cache.Support(runtime.GOOS, runtime.GOARCH) {
+				return true
+			}
+			candidates = append(candidates, &PackageSearch{Name: nm, Score: score, Cache: cache})
 		}
 		return true
 	})
@@ -151,18 +171,11 @@ func (r *Roster) SearchPackage(name string, possibles int) (*PackageSearchResult
 		}
 		return 0
 	})
+	if len(candidates) > possibles {
+		candidates = candidates[:possibles]
+	}
 	for _, c := range candidates {
-		cache, err := r.LoadPackageCache(c.Name)
-		if err != nil {
-			continue
-		}
-		if !cache.Support(runtime.GOOS, runtime.GOARCH) {
-			continue
-		}
-		ret.Possibles = append(ret.Possibles, cache)
-		if len(ret.Possibles) >= possibles {
-			break
-		}
+		ret.Possibles = append(ret.Possibles, c.Cache)
 	}
 	return ret, nil
 }
