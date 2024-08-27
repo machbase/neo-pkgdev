@@ -47,8 +47,13 @@ type Distributable struct {
 }
 
 type BuildRecipe struct {
-	Script []string `yaml:"script"`
-	Env    []string `yaml:"env"`
+	Scripts []Script `yaml:"scripts"`
+	Env     []string `yaml:"env"`
+}
+
+type Script struct {
+	Run      string `yaml:"run"`
+	Platform string `yaml:"on,omitempty"`
 }
 
 type TestRecipe struct {

@@ -109,33 +109,48 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 			return err
 		}
 	}
+	var buildRun string
+	if len(meta.BuildRecipe.Scripts) > 1 {
+		for _, script := range meta.BuildRecipe.Scripts {
+			if script.Platform == "" {
+				buildRun = script.Run
+				continue
+			}
+			if script.Platform == runtime.GOOS {
+				buildRun = script.Run
+				break
+			}
+		}
+	} else {
+		buildRun = meta.BuildRecipe.Scripts[0].Run
+	}
+
 	if runtime.GOOS == "windows" {
 		// Windows build script
-		for _, line := range meta.BuildRecipe.Script {
-			buildCmd := exec.Command("powershell", "-c", line)
-			buildCmd.Dir = dest
-			buildCmd.Env = append(os.Environ(), meta.BuildRecipe.Env...)
-			buildCmd.Stdout = os.Stdout
-			buildCmd.Stderr = os.Stderr
-			if err := buildCmd.Run(); err != nil {
-				return err
-			}
+		var buildScript string
+		if f, err := pkgs.MakeScriptFile([]string{buildRun}, dest, "__build__.cmd"); err != nil {
+			return err
+		} else {
+			buildScript = f
+		}
+		buildCmd := exec.Command("cmd", "/c", buildScript)
+		buildCmd.Dir = dest
+		buildCmd.Env = append(os.Environ(), meta.BuildRecipe.Env...)
+		buildCmd.Stdout = os.Stdout
+		buildCmd.Stderr = os.Stderr
+		if err := buildCmd.Run(); err != nil {
+			return err
 		}
 	} else {
 		// Create build script
 		var buildScript string
-		if f, err := pkgs.MakeScriptFile(meta.BuildRecipe.Script, dest, "__build__.sh"); err != nil {
+		if f, err := pkgs.MakeScriptFile([]string{buildRun}, dest, "__build__.sh"); err != nil {
 			return err
 		} else {
 			buildScript = f
 		}
 		// Run build script
-		var buildCmd *exec.Cmd
-		if runtime.GOOS == "windows" {
-			buildCmd = exec.Command("powershell", "-c", "npm install")
-		} else {
-			buildCmd = exec.Command("sh", "-c", buildScript)
-		}
+		buildCmd := exec.Command("sh", "-c", buildScript)
 		buildCmd.Dir = dest
 		buildCmd.Env = append(os.Environ(), meta.BuildRecipe.Env...)
 		buildCmd.Stdout = os.Stdout
@@ -149,7 +164,7 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 		if runtime.GOOS == "windows" {
 			for _, line := range meta.TestRecipe.Script {
 				// Windows test script
-				buildCmd := exec.Command("powershell", "-c", line)
+				buildCmd := exec.Command("cmd", "/c", line)
 				buildCmd.Dir = dest
 				buildCmd.Env = append(os.Environ(), meta.BuildRecipe.Env...)
 				buildCmd.Stdout = os.Stdout
@@ -167,7 +182,7 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 			}
 			var testCmd *exec.Cmd
 			if runtime.GOOS == "windows" {
-				testCmd = exec.Command("powershell", "-c", testScript)
+				testCmd = exec.Command("cmd", "/c", testScript)
 			} else {
 				testCmd = exec.Command("sh", "-c", testScript)
 			}
@@ -250,6 +265,7 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 	return nil
 }
 
+/*
 type Builder struct {
 	ds *pkgs.PackageMeta
 
@@ -392,3 +408,4 @@ func (b *Builder) getReleaseInfo(ver string) (*pkgs.GhReleaseInfo, error) {
 		return pkgs.GithubReleaseInfo(b.httpClient, org, repo, ver)
 	}
 }
+*/

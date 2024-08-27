@@ -14,27 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/machbase/neo-pkgdev/pkgs/builder"
 )
-
-func TestBuild(t *testing.T) {
-	t.Skip("Skip test")
-	builder, err := builder.NewBuilder(nil, "0.0.1",
-		builder.WithWorkDir("./tmp/builder"),
-		builder.WithDistDir("./tmp/dist"),
-	)
-	if err != nil {
-		panic(err)
-	}
-	err = builder.Build("latest")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("Build successful")
-	// Output:
-	// &{Organization:machbase Repo:neo-pkg-web-example Name:v0.0.1 TagName:v0.0.1 PublishedAt:2024-07-29 05:17:51 +0000 UTC HtmlUrl:https://github.com/machbase/neo-pkg-web-example/releases/tag/v0.0.1 TarballUrl:https://api.github.com/repos/machbase/neo-pkg-web-example/tarball/v0.0.1 Prerelease:false}
-	// Build successful
-}
 
 func TestDeploy(t *testing.T) {
 	t.Skip("Skip deploy test")
