@@ -35,7 +35,7 @@ func Plan(pkgFiles []string, output io.Writer) error {
 					bp.Name = "linux+amd64"
 					bp.Container = "ubuntu:22.04"
 				case "arm64":
-					bp.OS = []string{"ubuntu-latest"}
+					bp.OS = []string{"self-hosted", "linux", "ARM64", "ubuntu18"}
 					bp.Name = "linux+arm64"
 					bp.Container = "arm64v8/ubuntu:22.04"
 				case "arm", "arm32", "armv7":
