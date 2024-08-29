@@ -20,6 +20,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/machbase/neo-pkgdev/pkgs"
 	"github.com/machbase/neo-pkgdev/pkgs/tar"
+	"github.com/machbase/neo-pkgdev/pkgs/untar"
 )
 
 func Build(pathPackageYml string, dest string, output io.Writer) error {
@@ -76,7 +77,7 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 	}
 	srcTarBall := fmt.Sprintf("https://github.com/%s/%s/archive/refs/tags/%s.tar.gz", org, repo, latestInfo.TagName)
 	if runtime.GOOS == "windows" {
-		wgetCmd = exec.Command("powershell", "-c", fmt.Sprintf("Invoke-WebRequest %s -OutFile %s\\src.zip", srcTarBall, dest))
+		wgetCmd = exec.Command("powershell", "-c", fmt.Sprintf("Invoke-WebRequest %s -OutFile %s\\src.tar.gz", srcTarBall, dest))
 	} else {
 		wgetCmd = exec.Command("sh", "-c", fmt.Sprintf("wget %s -O %s/src.tar.gz", srcTarBall, dest))
 	}
@@ -88,7 +89,14 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 	// Extract the source tarball
 	var tarCmd *exec.Cmd
 	if runtime.GOOS == "windows" {
-		tarCmd = exec.Command("powershell", "-c", fmt.Sprintf("Expand-Archive %s\\src.zip -DestinationPath %s", dest, dest))
+		src, err := os.Open(filepath.Join(dest, "src.tar.gz"))
+		if err != nil {
+			return err
+		}
+		if err := untar.Untar(src, dest, 1); err != nil {
+			return err
+		}
+		src.Close()
 	} else {
 		tarCmd = exec.Command("sh", "-c", fmt.Sprintf("tar xf %s/src.tar.gz --strip-components=1 -C %s", dest, dest))
 	}
@@ -96,15 +104,6 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 	tarCmd.Stderr = os.Stderr
 	if err := tarCmd.Run(); err != nil {
 		return err
-	}
-	// Windows strip-components
-	if runtime.GOOS == "windows" {
-		mvCmd := exec.Command("powershell", "-c", fmt.Sprintf("Move-Item %s\\%s-%s\\* %s", dest, repo, strings.TrimPrefix(latestInfo.TagName, "v"), dest))
-		mvCmd.Stdout = os.Stdout
-		mvCmd.Stderr = os.Stderr
-		if err := mvCmd.Run(); err != nil {
-			return err
-		}
 	}
 
 	buildRun := pkgs.FindScript(meta.BuildRecipe.Scripts, runtime.GOOS)
