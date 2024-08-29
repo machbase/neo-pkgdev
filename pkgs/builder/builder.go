@@ -188,7 +188,7 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 		for _, p := range meta.Provides {
 			provides = append(provides, filepath.FromSlash(p))
 		}
-		err := tar.Archive(archivePath, provides)
+		err := tar.Archive(dest, archivePath, provides)
 		if err != nil {
 			return err
 		}
