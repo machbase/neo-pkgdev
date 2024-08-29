@@ -184,7 +184,11 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 		archivePath = fmt.Sprintf("%s-%s-%s-%s.tar.gz", repoInfo.Repo, versionName, runtime.GOOS, runtime.GOARCH)
 	}
 	if runtime.GOOS == "windows" {
-		err := tar.Archive(archivePath, meta.Provides)
+		provides := []string{}
+		for _, p := range meta.Provides {
+			provides = append(provides, filepath.FromSlash(p))
+		}
+		err := tar.Archive(archivePath, provides)
 		if err != nil {
 			return err
 		}
@@ -199,7 +203,7 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 			return err
 		}
 	}
-	fmt.Fprintf(output, "Built %s\n", archivePath)
+	fmt.Fprintf(output, "Build done %s\n", archivePath)
 
 	// Deploy the built files to S3
 	s3_key_id := os.Getenv("AWS_ACCESS_KEY_ID")
