@@ -59,7 +59,7 @@ func tarDir(tw *tar.Writer, path string, fi os.FileInfo) error {
 			return err
 		}
 		if stat.IsDir() {
-			if err := tarDir(tw, name, stat); err != nil {
+			if err := tarDir(tw, name+string(filepath.Separator), stat); err != nil {
 				return err
 			}
 		} else {
