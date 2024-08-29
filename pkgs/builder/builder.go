@@ -245,6 +245,15 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 			return err
 		}
 
+		_, err = client.PutObject(context.TODO(),
+			&s3.PutObjectInput{
+				Bucket: aws.String("p-edge-packages"),
+				Key:    aws.String(fmt.Sprintf("neo-pkg/%s/%s/%s.sum", org, repo, filepath.Base(archivePath))),
+				Body:   strings.NewReader(checksum),
+			})
+		if err != nil {
+			return err
+		}
 		fmt.Fprintln(output, "Deployed. sha-256:", checksum)
 	} else {
 		fmt.Fprintln(output, "Skip deploy.")
