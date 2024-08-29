@@ -19,6 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/machbase/neo-pkgdev/pkgs"
+	"github.com/machbase/neo-pkgdev/pkgs/tar"
 )
 
 func Build(pathPackageYml string, dest string, output io.Writer) error {
@@ -73,11 +74,7 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 	if err := os.MkdirAll(dest, 0755); err != nil {
 		return err
 	}
-	var archiveExt = ".tar.gz"
-	if runtime.GOOS == "windows" {
-		archiveExt = ".zip"
-	}
-	srcTarBall := fmt.Sprintf("https://github.com/%s/%s/archive/refs/tags/%s%s", org, repo, latestInfo.TagName, archiveExt)
+	srcTarBall := fmt.Sprintf("https://github.com/%s/%s/archive/refs/tags/%s.tar.gz", org, repo, latestInfo.TagName)
 	if runtime.GOOS == "windows" {
 		wgetCmd = exec.Command("powershell", "-c", fmt.Sprintf("Invoke-WebRequest %s -OutFile %s\\src.zip", srcTarBall, dest))
 	} else {
@@ -184,25 +181,25 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 		}
 	}
 	// Copy the built files to dist dir
-	var archiveCmd *exec.Cmd
-	var archivePath = fmt.Sprintf("%s-%s%s", repoInfo.Repo, versionName, archiveExt)
+	var archivePath = fmt.Sprintf("%s-%s.tar.gz", repoInfo.Repo, versionName)
 	if len(meta.Platforms) >= 1 {
-		archivePath = fmt.Sprintf("%s-%s-%s-%s%s", repoInfo.Repo, versionName, runtime.GOOS, runtime.GOARCH, archiveExt)
+		archivePath = fmt.Sprintf("%s-%s-%s-%s.tar.gz", repoInfo.Repo, versionName, runtime.GOOS, runtime.GOARCH)
 	}
 	if runtime.GOOS == "windows" {
-		args := []string{"-c", "Compress-Archive", "-DestinationPath", archivePath, "-Path", strings.Join(meta.Provides, ",")}
-		fmt.Println("Debug", args)
-		archiveCmd = exec.Command("powershell", args...)
+		err := tar.Archive(archivePath, meta.Provides)
+		if err != nil {
+			return err
+		}
 	} else {
 		args := strings.Join([]string{"tar", "czf", archivePath, strings.Join(meta.Provides, " ")}, " ")
 		fmt.Println("Debug", args)
-		archiveCmd = exec.Command("sh", "-c", args)
-	}
-	archiveCmd.Dir = dest
-	archiveCmd.Stdout = os.Stdout
-	archiveCmd.Stderr = os.Stderr
-	if err := archiveCmd.Run(); err != nil {
-		return err
+		archiveCmd := exec.Command("sh", "-c", args)
+		archiveCmd.Dir = dest
+		archiveCmd.Stdout = os.Stdout
+		archiveCmd.Stderr = os.Stderr
+		if err := archiveCmd.Run(); err != nil {
+			return err
+		}
 	}
 	fmt.Fprintf(output, "Built %s\n", archivePath)
 
@@ -252,148 +249,3 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 	}
 	return nil
 }
-
-/*
-type Builder struct {
-	ds *pkgs.PackageMeta
-
-	workDir    string
-	distDir    string
-	httpClient *http.Client
-}
-
-func NewBuilder(meta *pkgs.PackageMeta, version string, opts ...BuilderOption) (*Builder, error) {
-	ret := &Builder{ds: meta}
-	for _, opt := range opts {
-		opt(ret)
-	}
-	return ret, nil
-}
-
-type BuilderOption func(*Builder)
-
-func WithWorkDir(workDir string) BuilderOption {
-	return func(b *Builder) {
-		b.workDir = workDir
-	}
-}
-
-func WithDistDir(distDir string) BuilderOption {
-	return func(b *Builder) {
-		b.distDir = distDir
-	}
-}
-
-// Build builds the package with the given version.
-// if version is empty or "latest", it will use the latest version.
-func (b *Builder) Build(ver string) error {
-	if b.httpClient == nil {
-		b.httpClient = &http.Client{
-			Transport: &http.Transport{
-				Proxy: http.ProxyFromEnvironment,
-			},
-			Timeout: time.Duration(10) * time.Second,
-		}
-	}
-	var targetRelease *pkgs.GhReleaseInfo
-	if lr, err := b.getReleaseInfo(ver); err != nil {
-		return err
-	} else {
-		targetRelease = lr
-	}
-
-	// mkdir workdir
-	if err := os.MkdirAll(b.workDir, 0755); err != nil {
-		if !os.IsExist(err) {
-			return err
-		}
-	}
-
-	// download the tarball
-	srcTarBall := "src.tar.gz"
-	cmd := exec.Command("sh", "-c", fmt.Sprintln("wget", targetRelease.TarballUrl, "-O", srcTarBall))
-	cmd.Dir = b.workDir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
-	if err != nil {
-		return err
-	}
-
-	// extract the tarball // tar xvf ./src.tar.gz --strip-components=1
-	cmd = exec.Command("sh", "-c", fmt.Sprintln("tar", "xf", srcTarBall, "--strip-components", fmt.Sprintf("%d", b.ds.Distributable.StripComponents)))
-	cmd.Dir = b.workDir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err = cmd.Run()
-	if err != nil {
-		return err
-	}
-
-	// make build script
-	buildScript := "__build__.sh"
-	f, err := os.OpenFile(filepath.Join(b.workDir, buildScript), os.O_CREATE|os.O_WRONLY, 0755)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	for _, line := range b.ds.BuildRecipe.Script {
-		fmt.Fprintln(f, line)
-	}
-	if err := f.Sync(); err != nil {
-		return err
-	}
-
-	// run build script
-	cmd = exec.Command("sh", "-c", "./"+buildScript)
-	cmd.Env = append(os.Environ(), b.ds.BuildRecipe.Env...)
-	cmd.Dir = b.workDir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return err
-	}
-
-	// mkdir workdir
-	if err := os.MkdirAll(b.distDir, 0755); err != nil {
-		if !os.IsExist(err) {
-			return err
-		}
-	}
-
-	// copy the built files to dist dir
-	for _, pv := range b.ds.Provides {
-		cmd = exec.Command("rsync", "-r", filepath.Join(b.workDir, pv), b.distDir)
-		cmd.Env = append(os.Environ(), b.ds.BuildRecipe.Env...)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			return err
-		}
-	}
-
-	// tar xvf ./src.tar.gz --strip-components=1
-	fmt.Printf("%+v\n", targetRelease)
-	return nil
-}
-
-func (b *Builder) getReleaseInfo(ver string) (*pkgs.GhReleaseInfo, error) {
-	if b.ds.Distributable.Github == "" {
-		return nil, fmt.Errorf("distributable.github is not set")
-	}
-	org, repo, err := pkgs.GithubSplitPath(b.ds.Distributable.Github)
-	if err != nil {
-		return nil, err
-	}
-	// github's default distribution, strip_components is 1
-	if b.ds.Distributable.StripComponents == 0 {
-		b.ds.Distributable.StripComponents = 1
-	}
-
-	if ver != "" || strings.ToLower(ver) == "latest" {
-		return pkgs.GithubLatestReleaseInfo(b.httpClient, org, repo)
-	} else {
-		return pkgs.GithubReleaseInfo(b.httpClient, org, repo, ver)
-	}
-}
-*/
