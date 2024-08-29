@@ -5,7 +5,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"syscall"
 )
 
 func Archive(dest string, files []string) error {
@@ -29,16 +28,7 @@ func Archive(dest string, files []string) error {
 		} else {
 			fileType = tar.TypeReg
 		}
-		var uid int
-		var gid int
-		if sys_stat, ok := stat.Sys().(*syscall.Stat_t); ok {
-			uid = int(sys_stat.Uid)
-			gid = int(sys_stat.Gid)
-		} else {
-			// not in linux
-			uid = os.Getuid()
-			gid = os.Getgid()
-		}
+		uid, gid := getUid(stat)
 		hdr := &tar.Header{
 			Typeflag: fileType,
 			Name:     file,
