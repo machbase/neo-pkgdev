@@ -2,10 +2,12 @@ package tar
 
 import (
 	"archive/tar"
+	"compress/gzip"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func Archive(cwd string, dest string, files []string) error {
@@ -14,7 +16,12 @@ func Archive(cwd string, dest string, files []string) error {
 		return err
 	}
 	defer destFile.Close()
-	tw := tar.NewWriter(destFile)
+	var tw *tar.Writer
+	if strings.HasSuffix(dest, ".tar.gz") || strings.HasSuffix(dest, ".tgz") {
+		tw = tar.NewWriter(gzip.NewWriter(destFile))
+	} else {
+		tw = tar.NewWriter(destFile)
+	}
 	for _, file := range files {
 		stat, err := os.Stat(filepath.Join(cwd, file))
 		if err != nil {
