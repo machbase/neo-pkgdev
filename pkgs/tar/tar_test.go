@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/machbase/neo-pkgdev/pkgs/tar"
+	"github.com/machbase/neo-pkgdev/pkgs/untar"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,16 +19,22 @@ func TestArchive(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+
+	fd, err := os.Open("testdata/test.tar.gz")
+	if err != nil {
+		panic(err)
+	}
+	defer fd.Close()
+
+	if err := untar.Untar(fd, "testdata/extract", 1); err != nil {
+		panic(err)
+	}
+
 	buf := &strings.Builder{}
 	cmd := exec.Command("tar", "tf", "testdata/test.tar.gz")
 	cmd.Stdout = buf
 	cmd.Stderr = buf
 	cmd.Run()
-
-	err = os.Remove("testdata/test.tar.gz")
-	if err != nil {
-		panic(err)
-	}
 
 	expects := []string{
 		"build/",
@@ -41,4 +48,10 @@ func TestArchive(t *testing.T) {
 		result[i] = strings.TrimSpace(result[i])
 	}
 	require.Equal(t, expects, result)
+
+	err = os.Remove("testdata/test.tar.gz")
+	if err != nil {
+		panic(err)
+	}
+
 }

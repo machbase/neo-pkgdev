@@ -16,9 +16,15 @@ func Archive(cwd string, dest string, files []string) error {
 		return err
 	}
 	defer destFile.Close()
+
 	var tw *tar.Writer
 	if strings.HasSuffix(dest, ".tar.gz") || strings.HasSuffix(dest, ".tgz") {
-		tw = tar.NewWriter(gzip.NewWriter(destFile))
+		compressor, err := gzip.NewWriterLevel(destFile, gzip.BestCompression)
+		if err != nil {
+			return err
+		}
+		defer compressor.Close()
+		tw = tar.NewWriter(compressor)
 	} else {
 		tw = tar.NewWriter(destFile)
 	}
@@ -37,6 +43,7 @@ func Archive(cwd string, dest string, files []string) error {
 			}
 		}
 	}
+	tw.Close()
 	return nil
 }
 
