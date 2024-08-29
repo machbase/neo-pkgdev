@@ -3,21 +3,25 @@ package tar_test
 import (
 	"os"
 	"os/exec"
+	"strings"
+	"testing"
 
 	"github.com/machbase/neo-pkgdev/pkgs/tar"
+	"github.com/stretchr/testify/require"
 )
 
-func ExampleArchive() {
+func TestArchive(t *testing.T) {
 	provides := []string{
-		"testdata/",
+		"testdata/build/",
 	}
 	err := tar.Archive("test.tar.gz", provides)
 	if err != nil {
 		panic(err)
 	}
+	buf := &strings.Builder{}
 	cmd := exec.Command("tar", "tf", "test.tar.gz")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = buf
+	cmd.Stderr = buf
 	cmd.Run()
 
 	err = os.Remove("test.tar.gz")
@@ -25,10 +29,16 @@ func ExampleArchive() {
 		panic(err)
 	}
 
-	// Output:
-	// testdata/
-	// testdata/subdir/
-	// testdata/subdir/hello.txt
-	// testdata/test.txt
-
+	expects := []string{
+		"testdata/build/",
+		"testdata/build/subdir/",
+		"testdata/build/subdir/hello.txt",
+		"testdata/build/test.txt",
+		"",
+	}
+	result := strings.Split(buf.String(), "\n")
+	for i := range expects {
+		result[i] = strings.TrimSpace(result[i])
+	}
+	require.Equal(t, expects, result)
 }

@@ -2,6 +2,7 @@ package tar
 
 import (
 	"archive/tar"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -39,7 +40,7 @@ func tarDir(tw *tar.Writer, path string, fi os.FileInfo) error {
 	uid, gid := getUid(fi)
 	hdr := &tar.Header{
 		Typeflag: byte(tar.TypeDir),
-		Name:     path,
+		Name:     filepath.ToSlash(path),
 		Mode:     int64(mode.Perm()),
 		ModTime:  modTime,
 		Uid:      uid,
@@ -50,12 +51,14 @@ func tarDir(tw *tar.Writer, path string, fi os.FileInfo) error {
 	}
 	entries, err := os.ReadDir(path)
 	if err != nil {
+		fmt.Println("readDir", path)
 		return err
 	}
 	for _, entry := range entries {
 		name := filepath.Join(path, entry.Name())
 		stat, err := os.Stat(name)
 		if err != nil {
+			fmt.Println("stat", name)
 			return err
 		}
 		if stat.IsDir() {
@@ -78,7 +81,7 @@ func tarFile(tw *tar.Writer, path string, fi os.FileInfo) error {
 	uid, gid := getUid(fi)
 	hdr := &tar.Header{
 		Typeflag: byte(tar.TypeReg),
-		Name:     path,
+		Name:     filepath.ToSlash(path),
 		Mode:     int64(mode.Perm()),
 		Size:     size,
 		ModTime:  modTime,
