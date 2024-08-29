@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -289,7 +290,7 @@ func doRebuildCache(cmd *cobra.Command, args []string) error {
 			avails = append(avails, avail)
 		}
 		if len(avails) == 0 {
-			fmt.Println(name, "distribution not available")
+			fmt.Println(name, runtime.GOOS, runtime.GOARCH, "distribution not available")
 			return
 		}
 		cache.Platforms = []string{}

@@ -87,7 +87,6 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 		return err
 	}
 	// Extract the source tarball
-	var tarCmd *exec.Cmd
 	if runtime.GOOS == "windows" {
 		src, err := os.Open(filepath.Join(dest, "src.tar.gz"))
 		if err != nil {
@@ -98,12 +97,12 @@ func Build(pathPackageYml string, dest string, output io.Writer) error {
 		}
 		src.Close()
 	} else {
-		tarCmd = exec.Command("sh", "-c", fmt.Sprintf("tar xf %s/src.tar.gz --strip-components=1 -C %s", dest, dest))
-	}
-	tarCmd.Stdout = os.Stdout
-	tarCmd.Stderr = os.Stderr
-	if err := tarCmd.Run(); err != nil {
-		return err
+		tarCmd := exec.Command("sh", "-c", fmt.Sprintf("tar xf %s/src.tar.gz --strip-components=1 -C %s", dest, dest))
+		tarCmd.Stdout = os.Stdout
+		tarCmd.Stderr = os.Stderr
+		if err := tarCmd.Run(); err != nil {
+			return err
+		}
 	}
 
 	buildRun := pkgs.FindScript(meta.BuildRecipe.Scripts, runtime.GOOS)
