@@ -83,6 +83,55 @@ func Audit(pathPackageYml string, output io.Writer) error {
 		fmt.Fprintln(output, "   ", "tag:", latestInfo.TagName)
 		fmt.Fprintln(output, "   ", "Published:", elapsed.LocalTime(latestInfo.PublishedAt, "en"))
 	}
+
+	if err := auditScripts("build", meta.BuildRecipe.Scripts); err != nil {
+		return err
+	} else {
+		fmt.Fprintln(output, ">> Build Script")
+	}
+
+	if meta.TestRecipe != nil && len(meta.TestRecipe.Scripts) > 0 {
+		if err := auditScripts("test", meta.TestRecipe.Scripts); err != nil {
+			return err
+		} else {
+			fmt.Fprintln(output, ">> Test Script")
+		}
+	}
+
+	if meta.InstallRecipe != nil && len(meta.InstallRecipe.Scripts) > 0 {
+		if err := auditScripts("install", meta.InstallRecipe.Scripts); err != nil {
+			return err
+		} else {
+			fmt.Fprintln(output, ">> Install Script")
+		}
+	}
+
+	if meta.UninstallRecipe != nil && len(meta.UninstallRecipe.Scripts) > 0 {
+		if err := auditScripts("uninstall", meta.UninstallRecipe.Scripts); err != nil {
+			return err
+		} else {
+			fmt.Fprintln(output, ">> Uninstall Script")
+		}
+	}
+
+	return nil
+}
+
+func auditScripts(name string, scripts []pkgs.Script) error {
+	if len(scripts) == 0 {
+		return fmt.Errorf("%s script is empty", name)
+	}
+	for _, script := range scripts {
+		if script.Run == "" {
+			return fmt.Errorf("%s script is empty", name)
+		}
+		switch script.Platform {
+		case "linux", "darwin", "windows":
+			continue
+		default:
+			return fmt.Errorf("%s script platform %q is invalid", name, script.Platform)
+		}
+	}
 	return nil
 }
 

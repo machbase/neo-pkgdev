@@ -21,6 +21,7 @@ type Roster struct {
 	distDir             string
 	log                 Logger
 	syncWhenInitialized bool
+	experimental        bool
 }
 
 type RosterOption func(*Roster)
@@ -71,6 +72,12 @@ func WithLogger(logger Logger) RosterOption {
 func WithSyncWhenInitialized(flag bool) RosterOption {
 	return func(r *Roster) {
 		r.syncWhenInitialized = flag
+	}
+}
+
+func WithExperimental(flag bool) RosterOption {
+	return func(r *Roster) {
+		r.experimental = flag
 	}
 }
 
