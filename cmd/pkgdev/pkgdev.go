@@ -212,9 +212,14 @@ func doInstall(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	results := roster.Install(args, nil)
-	for _, r := range results {
+	for _, name := range args {
+		r := roster.Install(name, os.Stdout, nil)
+		if r.Err != nil {
+			fmt.Println(r.PkgName, "install failed", r.Err.Error())
+			continue
+		}
 		if r.Installed == nil {
+			fmt.Println(r.PkgName, "install failed")
 			continue
 		}
 		fmt.Println(r.PkgName, "installed", r.Installed.Version, r.Installed.Path)

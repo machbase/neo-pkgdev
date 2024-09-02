@@ -1,6 +1,8 @@
 package pkgs
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,27 +20,21 @@ type InstallStatus struct {
 	PkgName   string            `json:"pkg_name"`
 	Err       error             `json:"error,omitempty"`
 	Installed *InstalledVersion `json:"installed,omitempty"`
-	Output    string            `json:"output,omitempty"`
 }
 
-func (r *Roster) Install(pkgs []string, env []string) []*InstallStatus {
-	ret := make([]*InstallStatus, len(pkgs))
-	for i, name := range pkgs {
-		output := &strings.Builder{}
-		if err := r.install0(name, output, env); err != nil {
-			ret[i] = &InstallStatus{
-				PkgName: name,
-				Err:     err,
-				Output:  output.String(),
-			}
-		} else {
-			inst, err := r.InstalledVersion(name)
-			ret[i] = &InstallStatus{
-				PkgName:   name,
-				Err:       err,
-				Installed: inst,
-				Output:    output.String(),
-			}
+func (r *Roster) Install(name string, output io.Writer, env []string) *InstallStatus {
+	var ret *InstallStatus
+	if err := r.install0(name, output, env); err != nil {
+		ret = &InstallStatus{
+			PkgName: name,
+			Err:     err,
+		}
+	} else {
+		inst, err := r.InstalledVersion(name)
+		ret = &InstallStatus{
+			PkgName:   name,
+			Err:       err,
+			Installed: inst,
 		}
 	}
 	return ret
@@ -89,7 +85,7 @@ func (r *Roster) install0(name string, output io.Writer, env []string) error {
 		return fmt.Errorf("file %q already exists", archiveFile)
 	}
 
-	var srcUrl *url.URL
+	var srcUrl, sumUrl *url.URL
 	if cache.Url != "" {
 		if u, err := url.Parse(cache.Url); err != nil {
 			return err
@@ -102,6 +98,7 @@ func (r *Roster) install0(name string, output io.Writer, env []string) error {
 		} else {
 			srcUrl = u
 		}
+		sumUrl, _ = url.Parse(dist.Url + ".sum")
 	}
 
 	os.WriteFile(wip, []byte(dist.Url), 0644)
@@ -114,6 +111,27 @@ func (r *Roster) install0(name string, output io.Writer, env []string) error {
 			Proxy: http.ProxyFromEnvironment,
 		},
 		// Timeout: time.Duration(10) * time.Second, // download takes longer than 10 seconds
+	}
+
+	var sumBytes []byte
+	if sumUrl != nil {
+		sumRsp, err := httpClient.Do(&http.Request{
+			Method: "GET",
+			URL:    sumUrl,
+		})
+		if err != nil {
+			return err
+		}
+		defer sumRsp.Body.Close()
+		if sumRsp.StatusCode != http.StatusOK {
+			content, _ := io.ReadAll(sumRsp.Body)
+			return fmt.Errorf("failed to download %q: %s %s", sumUrl, sumRsp.Status, string(content))
+		}
+
+		sumBytes, err = io.ReadAll(sumRsp.Body)
+		if err != nil {
+			return err
+		}
 	}
 
 	rsp, err := httpClient.Do(&http.Request{
@@ -139,6 +157,25 @@ func (r *Roster) install0(name string, output io.Writer, env []string) error {
 		return err
 	}
 	download.Close()
+	fmt.Fprintf(output, "downloaded %s\n", filepath.Base(download.Name()))
+
+	// check sum
+	if len(sumBytes) > 0 {
+		hmx := sha256.New()
+		file, err := os.OpenFile(archiveFile, os.O_RDONLY, 0)
+		if err != nil {
+			return err
+		}
+		if _, err := io.Copy(hmx, file); err != nil {
+			return err
+		}
+		file.Close()
+		checksum := base64.StdEncoding.EncodeToString(hmx.Sum(nil))
+		if checksum != string(sumBytes) {
+			return fmt.Errorf("checksum mismatch, try again. %s", checksum)
+		}
+		fmt.Fprintf(output, "checksum %s\n", checksum)
+	}
 
 	switch strings.ToLower(dist.ArchiveExt) {
 	case ".zip":
