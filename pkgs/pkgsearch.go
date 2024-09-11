@@ -149,6 +149,16 @@ func (r *Roster) SearchPackage(name string, possibles int) (*PackageSearchResult
 	// search similar package names
 	candidates := []*PackageSearch{}
 	r.WalkPackageCache(func(nm string) bool {
+		if !r.experimental {
+			// skip alpha version on non-experimental mode
+			cache, err := r.LoadPackageCache(nm)
+			if err != nil {
+				return true
+			}
+			if strings.Contains(cache.LatestVersion, "alpha") {
+				return true
+			}
+		}
 		if ret.ExactMatch != nil && ret.ExactMatch.Name == nm {
 			return true
 		}
