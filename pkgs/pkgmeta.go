@@ -359,8 +359,12 @@ func (r *Roster) PushCache(rosterName RosterName, rosterRepoUrl string) error {
 	}
 	rosterBranch := r.rosterBranchOrDefault()
 	branchRef := plumbing.NewBranchReferenceName(rosterBranch)
-	if err := w.Checkout(&git.CheckoutOptions{Branch: branchRef, Force: true}); err != nil {
-		return fmt.Errorf("checkout roster branch %q failed: %w", rosterBranch, err)
+	headRef, err := repo.Head()
+	if err != nil {
+		return fmt.Errorf("head error: %w", err)
+	}
+	if headRef.Name() != branchRef {
+		return fmt.Errorf("roster branch mismatch: current=%q expected=%q (run update/sync with --roster-branch %s first)", headRef.Name().Short(), rosterBranch, rosterBranch)
 	}
 	refSpec := config.RefSpec(fmt.Sprintf("%s:%s", branchRef.String(), branchRef.String()))
 	status, _ := w.Status()
