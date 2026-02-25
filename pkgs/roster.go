@@ -11,6 +11,7 @@ import (
 type RosterName string
 
 const ROSTER_CENTRAL RosterName = "central"
+const DefaultRosterBranch = "main"
 
 var ROSTER_REPOS = map[RosterName]string{
 	ROSTER_CENTRAL: "https://github.com/machbase/neo-pkg.git",
@@ -22,6 +23,7 @@ type Roster struct {
 	log                 Logger
 	syncWhenInitialized bool
 	experimental        bool
+	rosterBranch        string
 }
 
 type RosterOption func(*Roster)
@@ -36,8 +38,9 @@ func NewRoster(baseDir string, opts ...RosterOption) (*Roster, error) {
 	distDir := filepath.Join(baseDir, "dist")
 
 	ret := &Roster{
-		metaDir: metaDir,
-		distDir: distDir,
+		metaDir:      metaDir,
+		distDir:      distDir,
+		rosterBranch: DefaultRosterBranch,
 	}
 	for _, opt := range opts {
 		opt(ret)
@@ -79,6 +82,21 @@ func WithExperimental(flag bool) RosterOption {
 	return func(r *Roster) {
 		r.experimental = flag
 	}
+}
+
+func WithRosterBranch(branch string) RosterOption {
+	return func(r *Roster) {
+		if branch = strings.TrimSpace(branch); branch != "" {
+			r.rosterBranch = branch
+		}
+	}
+}
+
+func (r *Roster) rosterBranchOrDefault() string {
+	if branch := strings.TrimSpace(r.rosterBranch); branch != "" {
+		return branch
+	}
+	return DefaultRosterBranch
 }
 
 type Updates struct {

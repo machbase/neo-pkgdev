@@ -209,6 +209,7 @@ type SyncCheckStatus struct {
 func (r *Roster) SyncCheck() ([]*SyncCheckStatus, error) {
 	ret := []*SyncCheckStatus{}
 	for rosterName, rosterRepoUrl := range ROSTER_REPOS {
+		rosterBranch := r.rosterBranchOrDefault()
 		repoPath := filepath.Join(r.metaDir, string(rosterName))
 		if _, err := os.Stat(repoPath); err != nil {
 			ret = append(ret, &SyncCheckStatus{
@@ -252,9 +253,17 @@ func (r *Roster) SyncCheck() ([]*SyncCheckStatus, error) {
 			if !refName.IsBranch() {
 				continue
 			}
-			if refName.Short() == "main" {
+			if refName.Short() == rosterBranch {
 				remoteRef = ref
 			}
+		}
+		if remoteRef == nil {
+			ret = append(ret, &SyncCheckStatus{
+				RosterName: string(rosterName),
+				SyncErr:    fmt.Errorf("remote branch %q not found in %s", rosterBranch, rosterRepoUrl),
+				NeedSync:   true,
+			})
+			continue
 		}
 		sc := &SyncCheckStatus{
 			RosterName:   string(rosterName),
@@ -264,7 +273,7 @@ func (r *Roster) SyncCheck() ([]*SyncCheckStatus, error) {
 		if headRef.Hash() != remoteRef.Hash() {
 			sc.NeedSync = true
 		}
-		r.log.Debugf("%s need sync:%t local:%s remote:%s", rosterName, sc.NeedSync, headRef.Hash(), remoteRef.Hash())
+		r.log.Debugf("%s[%s] need sync:%t local:%s remote:%s", rosterName, rosterBranch, sc.NeedSync, headRef.Hash(), remoteRef.Hash())
 		ret = append(ret, sc)
 	}
 	return ret, nil
@@ -282,12 +291,14 @@ func (r *Roster) SyncAll() error {
 func (r *Roster) Sync(rosterName RosterName, rosterRepoUrl string) error {
 	var repo *git.Repository
 	var isBare = false
+	rosterBranch := r.rosterBranchOrDefault()
+	branchRef := plumbing.NewBranchReferenceName(rosterBranch)
 	repoPath := filepath.Join(r.metaDir, string(rosterName))
 	if _, err := os.Stat(repoPath); err != nil {
 		repo, err = git.PlainClone(repoPath, isBare, &git.CloneOptions{
 			URL:           rosterRepoUrl,
 			RemoteName:    string(git.DefaultRemoteName),
-			ReferenceName: plumbing.ReferenceName("refs/heads/main"),
+			ReferenceName: branchRef,
 			SingleBranch:  true,
 			Depth:         1,
 		})
@@ -313,7 +324,7 @@ func (r *Roster) Sync(rosterName RosterName, rosterRepoUrl string) error {
 	err = w.Pull(&git.PullOptions{
 		RemoteURL:     rosterRepoUrl,
 		RemoteName:    string(git.DefaultRemoteName),
-		ReferenceName: plumbing.ReferenceName("refs/heads/main"),
+		ReferenceName: branchRef,
 		Depth:         0,
 		Force:         true,
 		SingleBranch:  true,
@@ -346,6 +357,12 @@ func (r *Roster) PushCache(rosterName RosterName, rosterRepoUrl string) error {
 	if err != nil {
 		return fmt.Errorf("worktree error: %w", err)
 	}
+	rosterBranch := r.rosterBranchOrDefault()
+	branchRef := plumbing.NewBranchReferenceName(rosterBranch)
+	if err := w.Checkout(&git.CheckoutOptions{Branch: branchRef, Force: true}); err != nil {
+		return fmt.Errorf("checkout roster branch %q failed: %w", rosterBranch, err)
+	}
+	refSpec := config.RefSpec(fmt.Sprintf("%s:%s", branchRef.String(), branchRef.String()))
 	status, _ := w.Status()
 	fmt.Println("repo isClean", status.IsClean())
 	if status.IsClean() {
@@ -367,6 +384,7 @@ func (r *Roster) PushCache(rosterName RosterName, rosterRepoUrl string) error {
 	token := os.Getenv("GITHUB_TOKEN")
 	err = repo.Push(&git.PushOptions{
 		RemoteName: string(git.DefaultRemoteName),
+		RefSpecs:   []config.RefSpec{refSpec},
 		Auth: &http.BasicAuth{
 			Username: "machbase",
 			Password: token,

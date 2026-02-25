@@ -15,6 +15,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const envRosterBranch = "NEOPKG_ROSTER_BRANCH"
+
 func NewCmd() *cobra.Command {
 	cobra.EnableCommandSorting = false
 
@@ -48,6 +50,7 @@ func NewCmd() *cobra.Command {
 	}
 	updateCmd.PersistentFlags().String("log-level", "none", "`[debug,info,warn,error,none]` log level, default is none")
 	updateCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
+	updateCmd.PersistentFlags().String("roster-branch", "", "`<Branch>` roster branch (default: NEOPKG_ROSTER_BRANCH or main)")
 	updateCmd.MarkPersistentFlagRequired("dir")
 
 	installCmd := &cobra.Command{
@@ -99,6 +102,7 @@ func NewCmd() *cobra.Command {
 	}
 	rebuildPlanCmd.PersistentFlags().String("log-level", "none", "`[debug,info,warn,error,none]` log level, default is none")
 	rebuildPlanCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
+	rebuildPlanCmd.PersistentFlags().String("roster-branch", "", "`<Branch>` roster branch (default: NEOPKG_ROSTER_BRANCH or main)")
 	rebuildPlanCmd.MarkPersistentFlagRequired("dir")
 
 	rebuildCacheCmd := &cobra.Command{
@@ -108,6 +112,7 @@ func NewCmd() *cobra.Command {
 	}
 	rebuildCacheCmd.PersistentFlags().String("log-level", "none", "`[debug,info,warn,error,none]` log level, default is none")
 	rebuildCacheCmd.PersistentFlags().StringP("dir", "d", "", "`<BaseDir>` path to the package base directory")
+	rebuildCacheCmd.PersistentFlags().String("roster-branch", "", "`<Branch>` roster branch (default: NEOPKG_ROSTER_BRANCH or main)")
 	rebuildCacheCmd.MarkPersistentFlagRequired("dir")
 
 	rootCmd.AddCommand(
@@ -181,7 +186,11 @@ func doUpdate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	logLevel, _ := cmd.Flags().GetString("log-level")
-	roster, err := pkgs.NewRoster(baseDir, pkgs.WithLogger(pkgs.NewLogger(pkgs.ParseLogLevel(logLevel))))
+	roster, err := pkgs.NewRoster(
+		baseDir,
+		pkgs.WithLogger(pkgs.NewLogger(pkgs.ParseLogLevel(logLevel))),
+		pkgs.WithRosterBranch(resolveRosterBranch(cmd)),
+	)
 	if err != nil {
 		return err
 	}
@@ -252,7 +261,11 @@ func doRebuildCache(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	logLevel, _ := cmd.Flags().GetString("log-level")
-	roster, err := pkgs.NewRoster(baseDir, pkgs.WithLogger(pkgs.NewLogger(pkgs.ParseLogLevel(logLevel))))
+	roster, err := pkgs.NewRoster(
+		baseDir,
+		pkgs.WithLogger(pkgs.NewLogger(pkgs.ParseLogLevel(logLevel))),
+		pkgs.WithRosterBranch(resolveRosterBranch(cmd)),
+	)
 	if err != nil {
 		return err
 	}
@@ -322,7 +335,11 @@ func doRebuildPlan(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	logLevel, _ := cmd.Flags().GetString("log-level")
-	roster, err := pkgs.NewRoster(baseDir, pkgs.WithLogger(pkgs.NewLogger(pkgs.ParseLogLevel(logLevel))))
+	roster, err := pkgs.NewRoster(
+		baseDir,
+		pkgs.WithLogger(pkgs.NewLogger(pkgs.ParseLogLevel(logLevel))),
+		pkgs.WithRosterBranch(resolveRosterBranch(cmd)),
+	)
 	if err != nil {
 		return err
 	}
@@ -463,6 +480,22 @@ func doBuild(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	return nil
+}
+
+func resolveRosterBranch(cmd *cobra.Command) string {
+	branch := ""
+	if cmd.Flags().Lookup("roster-branch") != nil {
+		if val, err := cmd.Flags().GetString("roster-branch"); err == nil {
+			branch = strings.TrimSpace(val)
+		}
+	}
+	if branch == "" {
+		branch = strings.TrimSpace(os.Getenv(envRosterBranch))
+	}
+	if branch == "" {
+		branch = pkgs.DefaultRosterBranch
+	}
+	return branch
 }
 
 func print(nr *pkgs.PackageCache) {
